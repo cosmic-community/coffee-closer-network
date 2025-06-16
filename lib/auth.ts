@@ -7,18 +7,41 @@ function createWriteClient() {
   const readKey = process.env.COSMIC_READ_KEY
   const writeKey = process.env.COSMIC_WRITE_KEY
 
-  if (!bucketSlug || !readKey || !writeKey) {
-    throw new Error('Missing required environment variables. Please check COSMIC_BUCKET_SLUG, COSMIC_READ_KEY, and COSMIC_WRITE_KEY.')
+  console.log('Environment check:', {
+    hasBucketSlug: !!bucketSlug,
+    hasReadKey: !!readKey,
+    hasWriteKey: !!writeKey,
+    bucketSlug: bucketSlug?.substring(0, 5) + '...' // Log first 5 chars for debugging
+  })
+
+  if (!bucketSlug) {
+    console.error('Missing COSMIC_BUCKET_SLUG environment variable')
+    throw new Error('Server configuration error: Missing bucket slug')
+  }
+  
+  if (!readKey) {
+    console.error('Missing COSMIC_READ_KEY environment variable')
+    throw new Error('Server configuration error: Missing read key')
+  }
+  
+  if (!writeKey) {
+    console.error('Missing COSMIC_WRITE_KEY environment variable')
+    throw new Error('Server configuration error: Missing write key')
   }
 
-  // Dynamically import and create client only when needed
-  const { createBucketClient } = require('@cosmicjs/sdk')
-  
-  return createBucketClient({
-    bucketSlug,
-    readKey,
-    writeKey,
-  })
+  try {
+    // Dynamically import and create client only when needed
+    const { createBucketClient } = require('@cosmicjs/sdk')
+    
+    return createBucketClient({
+      bucketSlug,
+      readKey,
+      writeKey,
+    })
+  } catch (importError: any) {
+    console.error('Failed to create Cosmic client:', importError)
+    throw new Error('Server configuration error: Unable to initialize database connection')
+  }
 }
 
 // Simple in-memory session storage (in production, use proper session management)
@@ -62,6 +85,8 @@ export async function signUp(userData: {
   bio: string
 }): Promise<UserProfile> {
   try {
+    console.log('Starting signup process for:', userData.email)
+
     // Validate input data
     if (!userData.fullName?.trim()) {
       throw new Error('Full name is required')
@@ -75,24 +100,37 @@ export async function signUp(userData: {
     if (!userData.currentRole?.trim()) {
       throw new Error('Current role is required')
     }
+    if (!userData.seniorityLevel?.trim()) {
+      throw new Error('Seniority level is required')
+    }
+    if (!userData.industryVertical?.trim()) {
+      throw new Error('Industry vertical is required')
+    }
 
     // Check if user already exists (use read-only client)
     try {
+      console.log('Checking if user exists with email:', userData.email)
       const existingUsers = await cosmic.objects.find({
         type: 'user-profiles',
         'metadata.email': userData.email.trim().toLowerCase()
-      }).props(['id', 'metadata'])
+      }).props(['id', 'metadata.email'])
 
       if (existingUsers.objects && existingUsers.objects.length > 0) {
+        console.log('User already exists')
         throw new Error('An account with this email already exists')
       }
     } catch (error: any) {
       // If error is 404, no users exist with this email, which is what we want
       if (error.status !== 404) {
         console.error('Error checking existing user:', error)
+        if (error.message === 'An account with this email already exists') {
+          throw error // Re-throw the user exists error
+        }
         // Continue with signup if it's just a query error
       }
     }
+
+    console.log('User does not exist, proceeding with creation')
 
     // Hash password
     const hashedPassword = hashPassword(userData.password)
@@ -126,6 +164,14 @@ export async function signUp(userData: {
       async_communication: false
     }
 
+    console.log('Creating user with metadata:', {
+      full_name: metadata.full_name,
+      email: metadata.email,
+      current_role: metadata.current_role,
+      seniority_level: metadata.seniority_level,
+      industry_vertical: metadata.industry_vertical
+    })
+
     // Create write client
     const writeClient = createWriteClient()
 
@@ -136,6 +182,8 @@ export async function signUp(userData: {
       type: 'user-profiles',
       metadata: metadata
     })
+
+    console.log('User created successfully:', userProfile.object.id)
 
     // Transform the response to match our UserProfile type with all required fields
     const createdUser: UserProfile = {
@@ -155,13 +203,18 @@ export async function signUp(userData: {
       isAuthenticated: true
     }
 
+    console.log('Signup completed successfully')
     return createdUser
   } catch (error: any) {
-    console.error('Sign up error:', error)
+    console.error('Sign up error:', {
+      message: error.message,
+      status: error.status,
+      stack: error.stack
+    })
     
     // Provide more specific error messages
-    if (error.message && error.message.includes('environment variables')) {
-      throw new Error('Server configuration error. Please contact support.')
+    if (error.message && error.message.includes('Server configuration error')) {
+      throw error // Re-throw server config errors as-is
     } else if (error.message && error.message.includes('already exists')) {
       throw new Error('An account with this email already exists')
     } else if (error.message && (
@@ -169,7 +222,9 @@ export async function signUp(userData: {
       error.message.includes('Full name') ||
       error.message.includes('Email') ||
       error.message.includes('Password') ||
-      error.message.includes('Current role')
+      error.message.includes('Current role') ||
+      error.message.includes('Seniority level') ||
+      error.message.includes('Industry vertical')
     )) {
       throw new Error(error.message)
     } else if (error.status === 400) {
