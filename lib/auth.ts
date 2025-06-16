@@ -1,3 +1,4 @@
+import { cosmicAuth } from '@/lib/cosmic-auth'
 import { cosmic } from '@/lib/cosmic'
 import type { UserProfile } from '@/types'
 
@@ -42,7 +43,7 @@ export async function signUp(userData: {
   bio: string
 }): Promise<UserProfile> {
   try {
-    // Check if user already exists
+    // Check if user already exists (use read-only client)
     try {
       const existingUsers = await cosmic.objects.find({
         type: 'user-profiles',
@@ -55,49 +56,60 @@ export async function signUp(userData: {
     } catch (error: any) {
       // If error is 404, no users exist with this email, which is what we want
       if (error.status !== 404) {
-        throw error
+        console.error('Error checking existing user:', error)
+        // Continue with signup if it's just a query error
       }
     }
 
     // Hash password
     const hashedPassword = hashPassword(userData.password)
 
-    // Create user profile in Cosmic
-    const userProfile = await cosmic.objects.insertOne({
+    // Prepare metadata object matching the Cosmic schema
+    const metadata = {
+      full_name: userData.fullName,
+      email: userData.email,
+      password_hash: hashedPassword,
+      current_role: userData.currentRole,
+      company: userData.company || '',
+      seniority_level: {
+        key: userData.seniorityLevel,
+        value: getSeniorityLevelValue(userData.seniorityLevel)
+      },
+      industry_vertical: {
+        key: userData.industryVertical,
+        value: getIndustryVerticalValue(userData.industryVertical)
+      },
+      bio: userData.bio || '',
+      timezone: {
+        key: 'EST',
+        value: 'Eastern Time (EST/EDT)'
+      },
+      sales_focus: {
+        key: 'MID_MARKET',
+        value: 'Mid-Market'
+      },
+      preferred_chat_times: [],
+      topics_to_discuss: [],
+      async_communication: false
+    }
+
+    // Create user profile in Cosmic using auth client with write permissions
+    const userProfile = await cosmicAuth.objects.insertOne({
       title: userData.fullName,
       slug: generateSlug(userData.fullName),
       type: 'user-profiles',
-      metadata: {
-        full_name: userData.fullName,
-        email: userData.email,
-        password_hash: hashedPassword,
-        current_role: userData.currentRole,
-        company: userData.company || '',
-        seniority_level: {
-          key: userData.seniorityLevel,
-          value: getSeniorityLevelValue(userData.seniorityLevel)
-        },
-        industry_vertical: {
-          key: userData.industryVertical,
-          value: getIndustryVerticalValue(userData.industryVertical)
-        },
-        bio: userData.bio || '',
-        timezone: {
-          key: 'EST',
-          value: 'Eastern Time (EST/EDT)'
-        },
-        sales_focus: {
-          key: 'MID_MARKET',
-          value: 'Mid-Market'
-        },
-        preferred_chat_times: [],
-        topics_to_discuss: [],
-        async_communication: false
-      }
+      metadata: metadata
     })
 
+    // Transform the response to match our UserProfile type
+    const createdUser: UserProfile = {
+      id: userProfile.object.id,
+      title: userProfile.object.title,
+      slug: userProfile.object.slug,
+      metadata: userProfile.object.metadata as UserProfile['metadata']
+    }
+
     // Set current session
-    const createdUser = userProfile.object as UserProfile
     currentSession = {
       user: createdUser,
       isAuthenticated: true
@@ -108,12 +120,16 @@ export async function signUp(userData: {
     console.error('Sign up error:', error)
     
     // Provide more specific error messages
-    if (error.message) {
+    if (error.message && error.message.includes('already exists')) {
+      throw new Error('An account with this email already exists')
+    } else if (error.message) {
       throw new Error(error.message)
     } else if (error.status === 400) {
       throw new Error('Invalid data provided. Please check your information and try again.')
     } else if (error.status === 403) {
       throw new Error('Permission denied. Please contact support.')
+    } else if (error.status === 401) {
+      throw new Error('Authentication failed. Please try again.')
     } else {
       throw new Error('An error occurred during signup. Please try again.')
     }
@@ -123,7 +139,7 @@ export async function signUp(userData: {
 // Sign in existing user
 export async function signIn(email: string, password: string): Promise<UserProfile> {
   try {
-    // Find user by email
+    // Find user by email (use read-only client)
     const response = await cosmic.objects.find({
       type: 'user-profiles',
       'metadata.email': email
