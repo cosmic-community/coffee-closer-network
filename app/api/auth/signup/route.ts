@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { createBucketClient } from '@cosmicjs/sdk'
-import { createSession, setSessionCookie } from '@/lib/session'
+import { createSession } from '@/lib/session'
 
 export async function POST(request: NextRequest) {
   try {
@@ -162,7 +162,13 @@ export async function POST(request: NextRequest) {
         user: sessionUser
       }, { status: 201 })
       
-      await setSessionCookie(response, token)
+      // Set the session cookie directly on the response
+      response.cookies.set('session', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7 // 7 days
+      })
       
       console.log('Session created successfully')
       return response
