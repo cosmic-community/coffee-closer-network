@@ -9,6 +9,9 @@ import QuickActions from '@/components/QuickActions'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { UserProfile } from '@/types'
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
+
 const cosmic = createBucketClient({
   bucketSlug: process.env.COSMIC_BUCKET_SLUG || '',
   readKey: process.env.COSMIC_READ_KEY || '',

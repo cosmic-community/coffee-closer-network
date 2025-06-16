@@ -3,7 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/components/AuthProvider'
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
