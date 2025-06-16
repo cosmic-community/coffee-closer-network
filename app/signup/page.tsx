@@ -1,10 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Metadata } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { signUp } from '@/lib/auth'
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -57,7 +55,29 @@ export default function SignupPage() {
     }
 
     try {
-      await signUp(formData)
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+          currentRole: formData.currentRole,
+          company: formData.company,
+          seniorityLevel: formData.seniorityLevel,
+          industryVertical: formData.industryVertical,
+          bio: formData.bio
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'An error occurred during signup')
+      }
+
       setSuccess(true)
       
       // Redirect to dashboard after successful signup
