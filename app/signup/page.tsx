@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useToast } from '@/components/Toast'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -21,7 +21,7 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const { showSuccess, showError } = useToast()
+  const { signup } = useAuth()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
@@ -36,56 +36,12 @@ export default function SignupPage() {
     setIsLoading(true)
     setError(null)
 
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      setIsLoading(false)
-      return
-    }
-
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long')
-      setIsLoading(false)
-      return
-    }
-
-    if (!formData.terms) {
-      setError('Please accept the terms and conditions')
-      setIsLoading(false)
-      return
-    }
-
     try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fullName: formData.fullName,
-          email: formData.email,
-          password: formData.password,
-          currentRole: formData.currentRole,
-          company: formData.company,
-          seniorityLevel: formData.seniorityLevel,
-          industryVertical: formData.industryVertical,
-          bio: formData.bio
-        }),
-        credentials: 'include'
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'An error occurred during signup')
-      }
-
-      showSuccess('Account created successfully!')
-      router.push('/profile/setup')
+      await signup(formData)
+      router.push('/dashboard')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred during signup'
       setError(errorMessage)
-      showError('Signup failed', errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -113,7 +69,7 @@ export default function SignupPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-neutral-700 mb-2">
                 Full Name
@@ -268,7 +224,7 @@ export default function SignupPage() {
               <textarea
                 id="bio"
                 name="bio"
-                rows={4}
+                rows={3}
                 value={formData.bio}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"

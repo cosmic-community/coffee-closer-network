@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/session'
+import { NextRequest, NextResponse } from 'next/server'
+import { verifySessionFromRequest } from '@/lib/session'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getSession()
+    const user = await verifySessionFromRequest(request)
     
     if (!user) {
       return NextResponse.json(

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useToast } from '@/components/Toast'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const { showSuccess, showError } = useToast()
+  const { login } = useAuth()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -29,27 +29,11 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-        credentials: 'include'
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'An error occurred during login')
-      }
-
-      showSuccess('Login successful!')
+      await login(formData.email, formData.password)
       router.push('/dashboard')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred during login'
       setError(errorMessage)
-      showError('Login failed', errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -144,6 +128,13 @@ export default function LoginPage() {
               <Link href="/signup" className="text-coffee-600 hover:text-coffee-700 font-medium">
                 Sign up
               </Link>
+            </p>
+          </div>
+
+          <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <h3 className="text-sm font-medium text-blue-800 mb-2">Demo Credentials</h3>
+            <p className="text-sm text-blue-600">
+              <strong>Admin:</strong> admin / admin
             </p>
           </div>
         </div>

@@ -1,52 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import bcrypt from 'bcryptjs'
 import { createBucketClient } from '@cosmicjs/sdk'
-import { createSession } from '@/lib/session'
+import { createSession, createSessionResponse } from '@/lib/session'
+import { hashPassword } from '@/lib/password-utils'
+import { validateSignupData } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { fullName, email, password, currentRole, company, seniorityLevel, industryVertical, bio } = body
     
-    console.log('Signup attempt for:', email)
+    console.log('Signup attempt for:', body.email)
     
-    // Validate required fields
-    const errors: string[] = []
-    
-    if (!fullName?.trim()) errors.push('Full name is required')
-    if (!email?.trim()) errors.push('Email is required')
-    if (!password?.trim()) errors.push('Password is required')
-    if (!currentRole?.trim()) errors.push('Current role is required')
-    if (!seniorityLevel?.trim()) errors.push('Seniority level is required')
-    if (!industryVertical?.trim()) errors.push('Industry vertical is required')
-    
-    if (errors.length > 0) {
-      console.log('Validation errors:', errors)
+    // Validate input data
+    const validation = validateSignupData(body)
+    if (!validation.isValid) {
+      console.log('Validation errors:', validation.errors)
       return NextResponse.json(
-        { error: errors.join(', ') },
+        { error: validation.errors[0] },
         { status: 400 }
       )
     }
 
-    // Validate environment variables
+    // Check environment variables
     const bucketSlug = process.env.COSMIC_BUCKET_SLUG
     const readKey = process.env.COSMIC_READ_KEY
     const writeKey = process.env.COSMIC_WRITE_KEY
     
-    console.log('Environment check:', {
-      hasBucketSlug: !!bucketSlug,
-      hasReadKey: !!readKey,
-      hasWriteKey: !!writeKey,
-      bucketSlugLength: bucketSlug?.length || 0,
-      writeKeyLength: writeKey?.length || 0
-    })
-
     if (!bucketSlug || !readKey || !writeKey) {
-      console.error('Missing environment variables:', {
-        bucketSlug: !!bucketSlug,
-        readKey: !!readKey,
-        writeKey: !!writeKey
-      })
+      console.error('Missing environment variables')
       return NextResponse.json(
         { error: 'Server configuration error. Please contact support.' },
         { status: 500 }
@@ -65,7 +45,7 @@ export async function POST(request: NextRequest) {
       console.log('Checking for existing user...')
       const existingUsers = await cosmic.objects.find({
         type: 'user-profiles',
-        'metadata.email': email.trim().toLowerCase()
+        'metadata.email': body.email.trim().toLowerCase()
       }).props(['id'])
 
       if (existingUsers.objects && existingUsers.objects.length > 0) {
@@ -76,48 +56,43 @@ export async function POST(request: NextRequest) {
         )
       }
     } catch (error: any) {
-      console.log('Error checking existing user:', error.message, 'Status:', error.status)
       if (error.status !== 404) {
-        console.error('Unexpected error checking existing user:', error)
+        console.error('Error checking existing user:', error)
         return NextResponse.json(
           { error: 'Failed to check existing user' },
           { status: 500 }
         )
       }
-      // 404 is expected when no users exist with this email
-      console.log('No existing users found (404 expected)')
+      // 404 is expected when no users exist
     }
 
     // Hash password
     console.log('Hashing password...')
-    const saltRounds = 12
-    const hashedPassword = await bcrypt.hash(password, saltRounds)
+    const hashedPassword = await hashPassword(body.password)
 
     // Generate slug
-    const slug = fullName
+    const slug = body.fullName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '')
       + '-' + Math.random().toString(36).substr(2, 9)
 
-    console.log('Generated slug:', slug)
-
     // Prepare metadata
     const metadata = {
-      full_name: fullName.trim(),
-      email: email.trim().toLowerCase(),
+      full_name: body.fullName.trim(),
+      email: body.email.trim().toLowerCase(),
       password_hash: hashedPassword,
-      current_role: currentRole.trim(),
-      company: company?.trim() || '',
+      current_role: body.currentRole.trim(),
+      company: body.company?.trim() || '',
       seniority_level: {
-        key: seniorityLevel,
-        value: getSeniorityLevelValue(seniorityLevel)
+        key: body.seniorityLevel,
+        value: getSeniorityLevelValue(body.seniorityLevel)
       },
       industry_vertical: {
-        key: industryVertical,
-        value: getIndustryVerticalValue(industryVertical)
+        key: body.industryVertical,
+        value: getIndustryVerticalValue(body.industryVertical)
       },
-      bio: bio?.trim() || '',
+      bio: body.bio?.trim() || '',
       timezone: {
         key: 'EST',
         value: 'Eastern Time (EST/EDT)'
@@ -131,12 +106,11 @@ export async function POST(request: NextRequest) {
       async_communication: false
     }
 
-    console.log('Creating user with metadata keys:', Object.keys(metadata))
-
+    console.log('Creating user in Cosmic...')
+    
     // Create user profile in Cosmic
-    console.log('Inserting user into Cosmic...')
     const userProfile = await cosmic.objects.insertOne({
-      title: fullName.trim(),
+      title: body.fullName.trim(),
       slug: slug,
       type: 'user-profiles',
       metadata: metadata
@@ -147,64 +121,37 @@ export async function POST(request: NextRequest) {
     // Create session
     const sessionUser = {
       id: userProfile.object.id,
-      email: email.trim().toLowerCase(),
-      fullName: fullName.trim(),
+      email: body.email.trim().toLowerCase(),
+      fullName: body.fullName.trim(),
       isAdmin: false
     }
 
-    console.log('Creating session for user:', sessionUser.id)
+    console.log('Creating session...')
+    const token = await createSession(sessionUser)
     
-    try {
-      const token = await createSession(sessionUser)
-      const response = NextResponse.json({
-        success: true,
-        message: 'Account created successfully!',
-        user: sessionUser
-      }, { status: 201 })
-      
-      // Set the session cookie directly on the response
-      response.cookies.set('session', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7 // 7 days
-      })
-      
-      console.log('Session created successfully')
-      return response
-    } catch (sessionError: any) {
-      console.error('Session creation error:', sessionError)
-      // Still return success since user was created
-      return NextResponse.json({
-        success: true,
-        message: 'Account created successfully! Please log in.',
-        user: sessionUser
-      }, { status: 201 })
-    }
+    return createSessionResponse({
+      success: true,
+      message: 'Account created successfully!',
+      user: sessionUser
+    }, token)
     
   } catch (error: any) {
-    console.error('Signup error details:', {
-      message: error.message,
-      status: error.status,
-      code: error.code,
-      stack: error.stack?.split('\n').slice(0, 3)
-    })
+    console.error('Signup error:', error)
     
-    // More specific error handling
-    if (error.message?.includes('writeKey')) {
+    if (error.message?.includes('Server configuration error')) {
       return NextResponse.json(
-        { error: 'Server configuration error. Please contact support.' },
+        { error: error.message },
         { status: 500 }
-      )
-    } else if (error.status === 400 || error.status === 409) {
-      return NextResponse.json(
-        { error: error.message || 'Invalid request' },
-        { status: error.status }
       )
     } else if (error.message?.includes('already exists')) {
       return NextResponse.json(
         { error: 'An account with this email already exists' },
         { status: 409 }
+      )
+    } else if (error.status === 400 || error.status === 409) {
+      return NextResponse.json(
+        { error: error.message || 'Invalid request' },
+        { status: error.status }
       )
     } else {
       return NextResponse.json(

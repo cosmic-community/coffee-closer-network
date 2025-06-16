@@ -1,27 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import bcrypt from 'bcryptjs'
 import { createBucketClient } from '@cosmicjs/sdk'
-import { createSession, setSessionCookie } from '@/lib/session'
-
-const cosmic = createBucketClient({
-  bucketSlug: process.env.COSMIC_BUCKET_SLUG || '',
-  readKey: process.env.COSMIC_READ_KEY || '',
-})
+import { createSession, createSessionResponse } from '@/lib/session'
+import { verifyPassword } from '@/lib/password-utils'
+import { validateLoginData } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password } = body
     
-    if (!email?.trim() || !password?.trim()) {
+    console.log('Login attempt for:', body.email)
+    
+    // Validate input data
+    const validation = validateLoginData(body)
+    if (!validation.isValid) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: validation.errors[0] },
         { status: 400 }
       )
     }
 
-    // Check for admin credentials
-    if (email.toLowerCase() === 'admin' && password === 'admin') {
+    // Check for admin credentials first
+    if (body.email.toLowerCase() === 'admin' && body.password === 'admin') {
       const adminUser = {
         id: 'admin',
         email: 'admin@coffeecloser.network',
@@ -30,20 +29,36 @@ export async function POST(request: NextRequest) {
       }
 
       const token = await createSession(adminUser)
-      await setSessionCookie(token)
-
-      return NextResponse.json({
+      return createSessionResponse({
         success: true,
         message: 'Admin login successful',
         user: adminUser
-      })
+      }, token)
     }
+
+    // Check environment variables
+    const bucketSlug = process.env.COSMIC_BUCKET_SLUG
+    const readKey = process.env.COSMIC_READ_KEY
+    
+    if (!bucketSlug || !readKey) {
+      console.error('Missing environment variables')
+      return NextResponse.json(
+        { error: 'Server configuration error. Please contact support.' },
+        { status: 500 }
+      )
+    }
+
+    // Create Cosmic client (read-only for login)
+    const cosmic = createBucketClient({
+      bucketSlug,
+      readKey,
+    })
 
     // Find user by email
     try {
       const response = await cosmic.objects.find({
         type: 'user-profiles',
-        'metadata.email': email.trim().toLowerCase()
+        'metadata.email': body.email.trim().toLowerCase()
       }).props(['id', 'title', 'metadata']).depth(1)
 
       if (!response.objects || response.objects.length === 0) {
@@ -64,7 +79,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Verify password
-      const isValidPassword = await bcrypt.compare(password, storedHash)
+      const isValidPassword = await verifyPassword(body.password, storedHash)
       
       if (!isValidPassword) {
         return NextResponse.json(
@@ -76,19 +91,17 @@ export async function POST(request: NextRequest) {
       // Create session
       const sessionUser = {
         id: userObject.id,
-        email: email.trim().toLowerCase(),
+        email: body.email.trim().toLowerCase(),
         fullName: userObject.metadata?.full_name || userObject.title,
         isAdmin: false
       }
 
       const token = await createSession(sessionUser)
-      await setSessionCookie(token)
-
-      return NextResponse.json({
+      return createSessionResponse({
         success: true,
         message: 'Login successful',
         user: sessionUser
-      })
+      }, token)
 
     } catch (error: any) {
       if (error.status === 404) {
