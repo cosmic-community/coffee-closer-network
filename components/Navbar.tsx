@@ -42,7 +42,7 @@ export default function Navbar() {
             <Link href="/dashboard" className="text-neutral-700 hover:text-coffee-600 transition-colors">
               Dashboard
             </Link>
-            <Link href="/sign-up" className="btn btn-primary">
+            <Link href="/signup" className="btn btn-primary">
               Sign Up
             </Link>
           </div>
@@ -84,7 +84,7 @@ export default function Navbar() {
                 <Link href="/dashboard" className="btn btn-secondary">
                   Dashboard
                 </Link>
-                <Link href="/sign-up" className="btn btn-primary">
+                <Link href="/signup" className="btn btn-primary">
                   Sign Up
                 </Link>
               </div>
