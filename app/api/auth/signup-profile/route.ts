@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (error) {
       // If 404, user doesn't exist - continue with creation
-      if (!(error as any)?.status === 404) {
+      if ((error as any)?.status !== 404) {
         throw error
       }
     }

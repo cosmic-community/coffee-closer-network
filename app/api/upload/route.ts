@@ -38,8 +38,7 @@ export async function POST(request: NextRequest) {
     // Upload to Cosmic
     const uploadResponse = await cosmic.media.insertOne({
       media: buffer,
-      originalName: file.name,
-      contentType: file.type
+      folder: 'profile-pictures'
     })
 
     return NextResponse.json({
