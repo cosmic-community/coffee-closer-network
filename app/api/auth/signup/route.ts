@@ -122,7 +122,17 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper function to get users (for login route to access)
-export function getUsers() {
-  return users
+// GET method to retrieve users (for login functionality)
+export async function GET() {
+  try {
+    // Return users without passwords for security
+    const safeUsers = users.map(({ password, ...user }) => user)
+    return NextResponse.json({ users: safeUsers })
+  } catch (error: any) {
+    console.error('Get users error:', error)
+    return NextResponse.json(
+      { error: 'Failed to retrieve users' },
+      { status: 500 }
+    )
+  }
 }
