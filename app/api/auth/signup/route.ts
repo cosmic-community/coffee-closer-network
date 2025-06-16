@@ -90,7 +90,8 @@ export async function POST(request: NextRequest) {
 
     // Hash password
     console.log('Hashing password...')
-    const hashedPassword = await bcrypt.hash(password, 12)
+    const saltRounds = 12
+    const hashedPassword = await bcrypt.hash(password, saltRounds)
 
     // Generate slug
     const slug = fullName
