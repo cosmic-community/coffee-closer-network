@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply font-sans text-neutral-800 bg-neutral-50;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold text-neutral-900;
+  }
+
+  p {
+    @apply text-neutral-700 leading-relaxed;
+  }
+
+  a {
+    @apply text-coffee-600 hover:text-coffee-700 transition-colors;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-6 py-3 rounded-lg font-medium transition-all duration-200 inline-flex items-center justify-center gap-2;
+  }
+
+  .btn-primary {
+    @apply bg-coffee-600 text-white hover:bg-coffee-700 shadow-md hover:shadow-lg;
+  }
+
+  .btn-secondary {
+    @apply bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border border-neutral-200;
+  }
+
+  .btn-outline {
+    @apply border-2 border-coffee-600 text-coffee-600 hover:bg-coffee-600 hover:text-white;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-neutral-200 p-6;
+  }
+
+  .card-hover {
+    @apply card hover:shadow-md hover:border-neutral-300 transition-all duration-200;
+  }
+
+  .container-custom {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .prose-custom {
+    @apply prose prose-neutral max-w-none prose-headings:text-neutral-900 prose-p:text-neutral-700 prose-a:text-coffee-600 prose-strong:text-neutral-800;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-coffee-600 to-coffee-700 bg-clip-text text-transparent;
+  }
+
+  .shadow-coffee {
+    box-shadow: 0 4px 14px 0 rgba(242, 146, 58, 0.1);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-neutral-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-neutral-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-neutral-400;
+}
