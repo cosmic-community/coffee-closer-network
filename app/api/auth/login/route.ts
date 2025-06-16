@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { UserStorage } from '@/lib/user-storage'
-import { adminLogin } from '@/lib/admin-auth'
+import bcrypt from 'bcryptjs'
+import { createBucketClient } from '@cosmicjs/sdk'
+import { createSession, setSessionCookie } from '@/lib/session'
+
+const cosmic = createBucketClient({
+  bucketSlug: process.env.COSMIC_BUCKET_SLUG || '',
+  readKey: process.env.COSMIC_READ_KEY || '',
+})
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('Login API called')
-    
     const body = await request.json()
     const { email, password } = body
-    
-    console.log('Login attempt for:', email)
-    console.log('Available users:', UserStorage.getAllUsers().map(u => u.email))
     
     if (!email?.trim() || !password?.trim()) {
       return NextResponse.json(
@@ -18,58 +19,89 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-    
-    // Check for admin credentials first
-    if (email.toLowerCase() === 'admin' || email.toLowerCase() === 'admin@coffeecloser.network') {
-      try {
-        const adminUser = await adminLogin('admin', password)
-        console.log('Admin login successful')
-        
-        return NextResponse.json({
-          success: true,
-          message: 'Admin login successful',
-          user: {
-            id: adminUser.id,
-            fullName: adminUser.metadata.full_name,
-            email: adminUser.metadata.email,
-            currentRole: adminUser.metadata.current_role,
-            company: adminUser.metadata.company,
-            isAdmin: true
-          }
-        })
-      } catch (adminError) {
-        console.log('Admin login failed, trying regular user login')
+
+    // Check for admin credentials
+    if (email.toLowerCase() === 'admin' && password === 'admin') {
+      const adminUser = {
+        id: 'admin',
+        email: 'admin@coffeecloser.network',
+        fullName: 'Administrator',
+        isAdmin: true
       }
+
+      const token = await createSession(adminUser)
+      await setSessionCookie(token)
+
+      return NextResponse.json({
+        success: true,
+        message: 'Admin login successful',
+        user: adminUser
+      })
     }
-    
-    // Try to authenticate user using shared storage
-    const authenticatedUser = UserStorage.authenticateUser(email, password)
-    
-    if (!authenticatedUser) {
-      console.log('Authentication failed for:', email)
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      )
-    }
-    
-    console.log('User login successful:', authenticatedUser.id)
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Login successful',
-      user: {
-        ...authenticatedUser,
+
+    // Find user by email
+    try {
+      const response = await cosmic.objects.find({
+        type: 'user-profiles',
+        'metadata.email': email.trim().toLowerCase()
+      }).props(['id', 'title', 'metadata']).depth(1)
+
+      if (!response.objects || response.objects.length === 0) {
+        return NextResponse.json(
+          { error: 'Invalid email or password' },
+          { status: 401 }
+        )
+      }
+
+      const userObject = response.objects[0]
+      const storedHash = userObject.metadata?.password_hash
+
+      if (!storedHash) {
+        return NextResponse.json(
+          { error: 'Invalid email or password' },
+          { status: 401 }
+        )
+      }
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, storedHash)
+      
+      if (!isValidPassword) {
+        return NextResponse.json(
+          { error: 'Invalid email or password' },
+          { status: 401 }
+        )
+      }
+
+      // Create session
+      const sessionUser = {
+        id: userObject.id,
+        email: email.trim().toLowerCase(),
+        fullName: userObject.metadata?.full_name || userObject.title,
         isAdmin: false
       }
-    })
+
+      const token = await createSession(sessionUser)
+      await setSessionCookie(token)
+
+      return NextResponse.json({
+        success: true,
+        message: 'Login successful',
+        user: sessionUser
+      })
+
+    } catch (error: any) {
+      if (error.status === 404) {
+        return NextResponse.json(
+          { error: 'Invalid email or password' },
+          { status: 401 }
+        )
+      }
+      throw error
+    }
     
   } catch (error: any) {
-    console.error('Login API error:', {
-      message: error.message,
-      stack: error.stack
-    })
-    
+    console.error('Login error:', error)
     return NextResponse.json(
       { error: 'An error occurred during login. Please try again.' },
       { status: 500 }

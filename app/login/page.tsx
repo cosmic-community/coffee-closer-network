@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { signIn } from '@/lib/auth'
+import { useToast } from '@/components/Toast'
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const { showSuccess, showError } = useToast()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -28,10 +29,27 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      await signIn(formData.email, formData.password)
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+        credentials: 'include'
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'An error occurred during login')
+      }
+
+      showSuccess('Login successful!')
       router.push('/dashboard')
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred during login')
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred during login'
+      setError(errorMessage)
+      showError('Login failed', errorMessage)
     } finally {
       setIsLoading(false)
     }

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/Toast'
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -19,8 +20,8 @@ export default function SignupPage() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
   const router = useRouter()
+  const { showSuccess, showError } = useToast()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
@@ -70,6 +71,7 @@ export default function SignupPage() {
           industryVertical: formData.industryVertical,
           bio: formData.bio
         }),
+        credentials: 'include'
       })
 
       const data = await response.json()
@@ -78,38 +80,15 @@ export default function SignupPage() {
         throw new Error(data.error || 'An error occurred during signup')
       }
 
-      setSuccess(true)
-      
-      // Redirect to dashboard after successful signup
-      setTimeout(() => {
-        router.push('/dashboard')
-      }, 2000)
+      showSuccess('Account created successfully!')
+      router.push('/profile/setup')
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred during signup')
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred during signup'
+      setError(errorMessage)
+      showError('Signup failed', errorMessage)
     } finally {
       setIsLoading(false)
     }
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-neutral-50 py-16">
-        <div className="container-custom">
-          <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-8 text-center">
-            <div className="w-16 h-16 bg-green-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-bold text-2xl">✓</span>
-            </div>
-            <h1 className="text-2xl font-bold text-neutral-900 mb-2">
-              Welcome to Coffee Closer Network!
-            </h1>
-            <p className="text-neutral-600 mb-4">
-              Your account has been created successfully. You'll be redirected to your dashboard shortly.
-            </p>
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-coffee-600 mx-auto"></div>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
