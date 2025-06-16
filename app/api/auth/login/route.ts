@@ -1,25 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { UserStorage } from '@/lib/user-storage'
 import { adminLogin } from '@/lib/admin-auth'
-
-// Import users from signup route
-let users: Array<{
-  id: string
-  fullName: string
-  email: string
-  password: string
-  currentRole: string
-  company: string
-  seniorityLevel: string
-  industryVertical: string
-  bio: string
-  createdAt: string
-}> = []
-
-// Simple password verification
-function verifyPassword(password: string, hashedPassword: string): boolean {
-  const hashed = btoa(password + 'coffee-salt-2024')
-  return hashed === hashedPassword
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +10,7 @@ export async function POST(request: NextRequest) {
     const { email, password } = body
     
     console.log('Login attempt for:', email)
+    console.log('Available users:', UserStorage.getAllUsers().map(u => u.email))
     
     if (!email?.trim() || !password?.trim()) {
       return NextResponse.json(
@@ -60,39 +42,24 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Try to find regular user
-    const user = users.find(u => 
-      u.email.toLowerCase() === email.trim().toLowerCase()
-    )
+    // Try to authenticate user using shared storage
+    const authenticatedUser = UserStorage.authenticateUser(email, password)
     
-    if (!user) {
-      console.log('User not found:', email)
-      console.log('Available users:', users.map(u => u.email))
+    if (!authenticatedUser) {
+      console.log('Authentication failed for:', email)
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       )
     }
     
-    // Verify password
-    if (!verifyPassword(password, user.password)) {
-      console.log('Password verification failed for:', email)
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      )
-    }
-    
-    console.log('User login successful:', user.id)
-    
-    // Return user data (without password)
-    const { password: _, ...safeUser } = user
+    console.log('User login successful:', authenticatedUser.id)
     
     return NextResponse.json({
       success: true,
       message: 'Login successful',
       user: {
-        ...safeUser,
+        ...authenticatedUser,
         isAdmin: false
       }
     })

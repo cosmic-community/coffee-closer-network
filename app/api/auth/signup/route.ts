@@ -1,43 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-// Simple password hashing (in production, use bcrypt)
-function hashPassword(password: string): string {
-  return btoa(password + 'coffee-salt-2024')
-}
-
-// Generate unique ID
-function generateId(): string {
-  return 'user_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
-}
-
-// Simple in-memory user storage (in production, use a proper database)
-// This will be replaced with a proper shared storage solution
-const users: Array<{
-  id: string
-  fullName: string
-  email: string
-  password: string
-  currentRole: string
-  company: string
-  seniorityLevel: string
-  industryVertical: string
-  bio: string
-  createdAt: string
-}> = []
-
-// Add admin user for testing
-users.push({
-  id: 'admin_user',
-  fullName: 'Administrator',
-  email: 'admin',
-  password: hashPassword('admin'),
-  currentRole: 'Administrator',
-  company: 'Coffee Closer Network',
-  seniorityLevel: 'Senior',
-  industryVertical: 'Technology',
-  bio: 'System administrator',
-  createdAt: new Date().toISOString()
-})
+import { UserStorage } from '@/lib/user-storage'
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,47 +28,40 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Check if user already exists
-    const existingUser = users.find(user => 
-      user.email.toLowerCase() === email.trim().toLowerCase()
-    )
-    
-    if (existingUser) {
-      console.log('User already exists with email:', email)
-      return NextResponse.json(
-        { error: 'An account with this email already exists' },
-        { status: 409 }
-      )
+    try {
+      // Create new user using shared storage
+      const newUser = UserStorage.createUser({
+        fullName,
+        email,
+        password,
+        currentRole,
+        company,
+        seniorityLevel,
+        industryVertical,
+        bio
+      })
+      
+      console.log('User created successfully:', newUser.id)
+      console.log('Total users now:', UserStorage.getUserCount())
+      
+      // Return success response (without password)
+      const { password: _, ...safeUser } = newUser
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Account created successfully! You can now log in.',
+        user: safeUser
+      }, { status: 201 })
+      
+    } catch (createError: any) {
+      if (createError.message === 'An account with this email already exists') {
+        return NextResponse.json(
+          { error: 'An account with this email already exists' },
+          { status: 409 }
+        )
+      }
+      throw createError
     }
-    
-    // Create new user
-    const newUser = {
-      id: generateId(),
-      fullName: fullName.trim(),
-      email: email.trim().toLowerCase(),
-      password: hashPassword(password.trim()),
-      currentRole: currentRole.trim(),
-      company: company?.trim() || '',
-      seniorityLevel: seniorityLevel.trim(),
-      industryVertical: industryVertical.trim(),
-      bio: bio?.trim() || '',
-      createdAt: new Date().toISOString()
-    }
-    
-    // Add user to storage
-    users.push(newUser)
-    
-    console.log('User created successfully:', newUser.id)
-    console.log('Total users now:', users.length)
-    
-    // Return success response (without password)
-    const { password: _, ...safeUser } = newUser
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Account created successfully! You can now log in.',
-      user: safeUser
-    }, { status: 201 })
     
   } catch (error: any) {
     console.error('Signup API error:', {
@@ -122,12 +77,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET method to retrieve users (for login functionality)
+// GET method to retrieve users (for debugging)
 export async function GET() {
   try {
-    // Return users without passwords for security
-    const safeUsers = users.map(({ password, ...user }) => user)
-    return NextResponse.json({ users: safeUsers })
+    const users = UserStorage.getAllUsers()
+    return NextResponse.json({ 
+      users,
+      count: users.length,
+      message: 'Users retrieved successfully'
+    })
   } catch (error: any) {
     console.error('Get users error:', error)
     return NextResponse.json(
