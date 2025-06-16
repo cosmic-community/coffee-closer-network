@@ -15,6 +15,8 @@ export interface UserProfile extends CosmicObject {
   type_slug: 'user-profiles';
   metadata: {
     full_name?: string;
+    email?: string;
+    password_hash?: string;
     profile_picture?: {
       url: string;
       imgix_url: string;
@@ -132,6 +134,32 @@ export interface StaticPage extends CosmicObject {
     meta_title?: string;
     meta_description?: string;
   };
+}
+
+// Authentication interfaces
+export interface SignUpData {
+  fullName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  currentRole: string;
+  company: string;
+  seniorityLevel: string;
+  industryVertical: string;
+  bio: string;
+  terms: boolean;
+}
+
+export interface SignInData {
+  email: string;
+  password: string;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  fullName: string;
+  profile: UserProfile;
 }
 
 // Type literals for select-dropdown values

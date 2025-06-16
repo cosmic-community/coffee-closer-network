@@ -1,28 +1,28 @@
 'use client'
 
 import { useState } from 'react'
-import { Metadata } from 'next'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { signUp } from '@/lib/auth'
 
-export default function SignupPage() {
+interface AuthFormProps {
+  mode: 'signin' | 'signup'
+  onSubmit: (data: any) => Promise<void>
+  isLoading: boolean
+  error: string | null
+}
+
+export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormProps) {
   const [formData, setFormData] = useState({
-    fullName: '',
     email: '',
     password: '',
-    confirmPassword: '',
+    fullName: '',
     currentRole: '',
     company: '',
     seniorityLevel: '',
     industryVertical: '',
     bio: '',
+    confirmPassword: '',
     terms: false
   })
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-  const router = useRouter()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
@@ -34,137 +34,101 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError(null)
-
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      setIsLoading(false)
-      return
+    
+    if (mode === 'signup') {
+      if (formData.password !== formData.confirmPassword) {
+        throw new Error('Passwords do not match')
+      }
+      if (!formData.terms) {
+        throw new Error('Please accept the terms and conditions')
+      }
     }
-
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long')
-      setIsLoading(false)
-      return
-    }
-
-    if (!formData.terms) {
-      setError('Please accept the terms and conditions')
-      setIsLoading(false)
-      return
-    }
-
-    try {
-      await signUp(formData)
-      setSuccess(true)
-      
-      // Redirect to dashboard after successful signup
-      setTimeout(() => {
-        router.push('/dashboard')
-      }, 2000)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred during signup')
-    } finally {
-      setIsLoading(false)
-    }
+    
+    await onSubmit(formData)
   }
 
-  if (success) {
-    return (
-      <div className="min-h-screen bg-neutral-50 py-16">
-        <div className="container-custom">
-          <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-8 text-center">
-            <div className="w-16 h-16 bg-green-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-bold text-2xl">✓</span>
-            </div>
-            <h1 className="text-2xl font-bold text-neutral-900 mb-2">
-              Welcome to Coffee Closer Network!
-            </h1>
-            <p className="text-neutral-600 mb-4">
-              Your account has been created successfully. You'll be redirected to your dashboard shortly.
-            </p>
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-coffee-600 mx-auto"></div>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const isSignUp = mode === 'signup'
 
   return (
-    <div className="min-h-screen bg-neutral-50 py-16">
-      <div className="container-custom">
-        <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-8">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-coffee-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-bold text-2xl">☕</span>
-            </div>
-            <h1 className="text-2xl font-bold text-neutral-900 mb-2">
-              Join Coffee Closer Network
-            </h1>
-            <p className="text-neutral-600">
-              Connect with sales professionals for meaningful conversations
-            </p>
+    <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-8">
+      <div className="text-center mb-8">
+        <div className="w-16 h-16 bg-coffee-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+          <span className="text-white font-bold text-2xl">☕</span>
+        </div>
+        <h1 className="text-2xl font-bold text-neutral-900 mb-2">
+          {isSignUp ? 'Join Coffee Closer Network' : 'Welcome Back'}
+        </h1>
+        <p className="text-neutral-600">
+          {isSignUp 
+            ? 'Connect with sales professionals for meaningful conversations'
+            : 'Sign in to your Coffee Closer Network account'
+          }
+        </p>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md mb-6">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {isSignUp && (
+          <div>
+            <label htmlFor="fullName" className="block text-sm font-medium text-neutral-700 mb-2">
+              Full Name
+            </label>
+            <input
+              type="text"
+              id="fullName"
+              name="fullName"
+              required
+              value={formData.fullName}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+              placeholder="Enter your full name"
+            />
           </div>
+        )}
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md mb-6">
-              {error}
-            </div>
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-2">
+            Email Address
+          </label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            value={formData.email}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+            placeholder="Enter your email address"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-2">
+            Password
+          </label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            value={formData.password}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+            placeholder={isSignUp ? "Create a password" : "Enter your password"}
+            minLength={isSignUp ? 8 : undefined}
+          />
+          {isSignUp && (
+            <p className="text-sm text-neutral-500 mt-1">Must be at least 8 characters</p>
           )}
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-neutral-700 mb-2">
-                Full Name
-              </label>
-              <input
-                type="text"
-                id="fullName"
-                name="fullName"
-                required
-                value={formData.fullName}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
-                placeholder="Enter your full name"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
-                placeholder="Enter your email address"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
-                placeholder="Create a password"
-                minLength={8}
-              />
-              <p className="text-sm text-neutral-500 mt-1">Must be at least 8 characters</p>
-            </div>
-
+        {isSignUp && (
+          <>
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 mb-2">
                 Confirm Password
@@ -300,25 +264,52 @@ export default function SignupPage() {
                 </Link>
               </label>
             </div>
+          </>
+        )}
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-neutral-600">
-              Already have an account?{' '}
-              <Link href="/login" className="text-coffee-600 hover:text-coffee-700 font-medium">
-                Sign in
+        {!isSignUp && (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                className="h-4 w-4 text-coffee-600 focus:ring-coffee-500 border-neutral-300 rounded"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-neutral-700">
+                Remember me
+              </label>
+            </div>
+            <div className="text-sm">
+              <Link href="/forgot-password" className="text-coffee-600 hover:text-coffee-700">
+                Forgot your password?
               </Link>
-            </p>
+            </div>
           </div>
-        </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading 
+            ? (isSignUp ? 'Creating Account...' : 'Signing in...') 
+            : (isSignUp ? 'Create Account' : 'Sign In')
+          }
+        </button>
+      </form>
+
+      <div className="mt-6 text-center">
+        <p className="text-sm text-neutral-600">
+          {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+          <Link 
+            href={isSignUp ? '/login' : '/signup'} 
+            className="text-coffee-600 hover:text-coffee-700 font-medium"
+          >
+            {isSignUp ? 'Sign in' : 'Sign up'}
+          </Link>
+        </p>
       </div>
     </div>
   )
