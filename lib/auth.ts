@@ -101,12 +101,16 @@ export async function signUp(userData: {
       metadata: metadata
     })
 
-    // Transform the response to match our UserProfile type
+    // Transform the response to match our UserProfile type with all required fields
     const createdUser: UserProfile = {
       id: userProfile.object.id,
       title: userProfile.object.title,
       slug: userProfile.object.slug,
-      metadata: userProfile.object.metadata as UserProfile['metadata']
+      content: userProfile.object.content || '',
+      metadata: userProfile.object.metadata as UserProfile['metadata'],
+      type_slug: 'user-profiles' as const,
+      created_at: userProfile.object.created_at || new Date().toISOString(),
+      modified_at: userProfile.object.modified_at || new Date().toISOString()
     }
 
     // Set current session
@@ -143,13 +147,25 @@ export async function signIn(email: string, password: string): Promise<UserProfi
     const response = await cosmic.objects.find({
       type: 'user-profiles',
       'metadata.email': email
-    }).props(['id', 'title', 'slug', 'metadata']).depth(1)
+    }).props(['id', 'title', 'slug', 'content', 'metadata', 'created_at', 'modified_at']).depth(1)
 
     if (!response.objects || response.objects.length === 0) {
       throw new Error('Invalid email or password')
     }
 
-    const user = response.objects[0] as UserProfile
+    const userObject = response.objects[0]
+
+    // Properly type the user object with all required fields
+    const user: UserProfile = {
+      id: userObject.id,
+      title: userObject.title,
+      slug: userObject.slug,
+      content: userObject.content || '',
+      metadata: userObject.metadata as UserProfile['metadata'],
+      type_slug: 'user-profiles' as const,
+      created_at: userObject.created_at || new Date().toISOString(),
+      modified_at: userObject.modified_at || new Date().toISOString()
+    }
 
     // Verify password
     const hashedPassword = user.metadata.password_hash
