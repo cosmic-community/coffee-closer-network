@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Simple password hashing (in production, use bcrypt)
+function hashPassword(password: string): string {
+  return btoa(password + 'coffee-salt-2024')
+}
+
+// Generate unique ID
+function generateId(): string {
+  return 'user_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
+}
+
 // Simple in-memory user storage (in production, use a proper database)
-let users: Array<{
+// This will be replaced with a proper shared storage solution
+const users: Array<{
   id: string
   fullName: string
   email: string
@@ -14,15 +25,19 @@ let users: Array<{
   createdAt: string
 }> = []
 
-// Simple password hashing (in production, use bcrypt)
-function hashPassword(password: string): string {
-  return btoa(password + 'coffee-salt-2024')
-}
-
-// Generate unique ID
-function generateId(): string {
-  return 'user_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
-}
+// Add admin user for testing
+users.push({
+  id: 'admin_user',
+  fullName: 'Administrator',
+  email: 'admin',
+  password: hashPassword('admin'),
+  currentRole: 'Administrator',
+  company: 'Coffee Closer Network',
+  seniorityLevel: 'Senior',
+  industryVertical: 'Technology',
+  bio: 'System administrator',
+  createdAt: new Date().toISOString()
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -107,5 +122,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Export users array for login route to access
-export { users }
+// Helper function to get users (for login route to access)
+export function getUsers() {
+  return users
+}
