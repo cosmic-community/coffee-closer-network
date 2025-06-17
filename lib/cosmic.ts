@@ -30,9 +30,9 @@ if (!process.env.COSMIC_WRITE_KEY) {
   throw new Error('COSMIC_WRITE_KEY environment variable is required')
 }
 
-// Validate that we're using the correct bucket
-if (process.env.COSMIC_BUCKET_SLUG !== 'coffee-closers-production') {
-  console.warn(`WARNING: Expected bucket slug "coffee-closers-production" but got "${process.env.COSMIC_BUCKET_SLUG}"`)
+// Updated to use the correct bucket ID as slug
+if (process.env.COSMIC_BUCKET_SLUG !== '68507c30d8593624e0a9fbbb') {
+  console.warn(`WARNING: Expected bucket slug "68507c30d8593624e0a9fbbb" but got "${process.env.COSMIC_BUCKET_SLUG}"`)
 }
 
 export const cosmic = createBucketClient({
@@ -41,10 +41,11 @@ export const cosmic = createBucketClient({
   writeKey: process.env.COSMIC_WRITE_KEY,
 })
 
-// Test connection function
+// Test connection function with detailed error reporting
 export async function testCosmicConnection(): Promise<boolean> {
   try {
     console.log('Testing Cosmic connection...')
+    console.log('Using bucket slug:', process.env.COSMIC_BUCKET_SLUG)
     const response = await cosmic.objects.find({ type: 'user-profiles' }).limit(1)
     console.log('Cosmic connection successful!')
     return true
@@ -52,7 +53,8 @@ export async function testCosmicConnection(): Promise<boolean> {
     console.error('Cosmic connection failed:', {
       message: error.message,
       status: error.status,
-      bucketSlug: process.env.COSMIC_BUCKET_SLUG
+      bucketSlug: process.env.COSMIC_BUCKET_SLUG,
+      fullError: error
     })
     return false
   }
@@ -63,7 +65,7 @@ function hasStatus(error: unknown): error is { status: number } {
   return typeof error === 'object' && error !== null && 'status' in error;
 }
 
-// User Profiles
+// User Profiles with enhanced error handling
 export async function getUserProfiles(): Promise<UserProfile[]> {
   try {
     const response = await cosmic.objects
@@ -72,6 +74,7 @@ export async function getUserProfiles(): Promise<UserProfile[]> {
       .depth(1);
     return response.objects as UserProfile[];
   } catch (error) {
+    console.error('Error fetching user profiles:', error);
     if (hasStatus(error) && error.status === 404) {
       return [];
     }
@@ -87,6 +90,7 @@ export async function getUserProfile(slug: string): Promise<UserProfile | null> 
     }).depth(1);
     return response.object as UserProfile;
   } catch (error) {
+    console.error('Error fetching user profile:', error);
     if (hasStatus(error) && error.status === 404) {
       return null;
     }
@@ -102,10 +106,55 @@ export async function getUserProfileByEmail(email: string): Promise<UserProfile 
     }).depth(1);
     return response.object as UserProfile;
   } catch (error) {
+    console.error('Error fetching user profile by email:', error);
     if (hasStatus(error) && error.status === 404) {
       return null;
     }
     throw new Error('Failed to fetch user profile by email');
+  }
+}
+
+// Create user profile with detailed error logging
+export async function createUserProfile(userData: {
+  title: string;
+  slug: string;
+  metadata: {
+    email_address: string;
+    password_hash: string;
+    first_name: string;
+    last_name: string;
+    location: string;
+    profession: string;
+    experience_level: string;
+    bio: string;
+    linkedin_url?: string;
+    github_url?: string;
+    website_url?: string;
+    interests: string[];
+    availability: string;
+    profile_visibility: string;
+    email_notifications: boolean;
+    account_status: string;
+  };
+}): Promise<UserProfile> {
+  try {
+    console.log('Creating user profile for:', userData.metadata.email_address);
+    const response = await cosmic.objects.insertOne({
+      type: 'user-profiles',
+      title: userData.title,
+      slug: userData.slug,
+      metadata: userData.metadata
+    });
+    console.log('User profile created successfully:', response.object.id);
+    return response.object as UserProfile;
+  } catch (error: any) {
+    console.error('Error creating user profile:', {
+      message: error.message,
+      status: error.status,
+      email: userData.metadata.email_address,
+      fullError: error
+    });
+    throw new Error(`Failed to create user profile: ${error.message}`);
   }
 }
 
