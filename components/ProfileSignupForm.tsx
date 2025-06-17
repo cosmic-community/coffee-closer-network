@@ -201,6 +201,12 @@ export default function ProfileSignupForm() {
     setSubmitError(null)
 
     try {
+      console.log('Starting form submission with data:', {
+        fullName: formData.fullName,
+        company: formData.company,
+        currentRole: formData.currentRole
+      })
+
       // Check for duplicate user
       const isDuplicate = await checkForDuplicate(formData.fullName)
       if (isDuplicate) {
@@ -213,7 +219,9 @@ export default function ProfileSignupForm() {
       let uploadedImage = null
       if (formData.profilePicture) {
         try {
+          console.log('Uploading profile picture...')
           uploadedImage = await uploadFile(formData.profilePicture)
+          console.log('Profile picture uploaded successfully:', uploadedImage)
         } catch (uploadError) {
           console.error('Failed to upload profile picture:', uploadError)
           // Continue without profile picture rather than failing completely
@@ -221,11 +229,12 @@ export default function ProfileSignupForm() {
       }
 
       // Prepare user data for Cosmic
+      const slug = generateSlug(formData.fullName)
       const userData = {
         title: formData.fullName,
         type: 'user-profiles',
         status: 'published',
-        slug: generateSlug(formData.fullName),
+        slug: slug,
         metadata: {
           full_name: formData.fullName,
           current_role: formData.currentRole,
@@ -235,19 +244,19 @@ export default function ProfileSignupForm() {
           fun_fact: formData.funFact || '',
           profile_picture: uploadedImage,
           timezone: {
-            key: TIMEZONE_OPTIONS.find(tz => tz.value === formData.timezone)?.key || '',
+            key: TIMEZONE_OPTIONS.find(tz => tz.value === formData.timezone)?.key || 'OTHER',
             value: formData.timezone
           },
           seniority_level: {
-            key: SENIORITY_OPTIONS.find(sl => sl.value === formData.seniorityLevel)?.key || '',
+            key: SENIORITY_OPTIONS.find(sl => sl.value === formData.seniorityLevel)?.key || 'OTHER',
             value: formData.seniorityLevel
           },
           sales_focus: {
-            key: SALES_FOCUS_OPTIONS.find(sf => sf.value === formData.salesFocus)?.key || '',
+            key: SALES_FOCUS_OPTIONS.find(sf => sf.value === formData.salesFocus)?.key || 'OTHER',
             value: formData.salesFocus
           },
           industry_vertical: {
-            key: INDUSTRY_OPTIONS.find(iv => iv.value === formData.industryVertical)?.key || '',
+            key: INDUSTRY_OPTIONS.find(iv => iv.value === formData.industryVertical)?.key || 'OTHER',
             value: formData.industryVertical
           },
           preferred_chat_times: formData.preferredChatTimes,
@@ -256,6 +265,13 @@ export default function ProfileSignupForm() {
         }
       }
 
+      console.log('Submitting user data to API:', {
+        title: userData.title,
+        type: userData.type,
+        slug: userData.slug,
+        metadataKeys: Object.keys(userData.metadata)
+      })
+
       // Submit to Cosmic CMS
       const response = await fetch('/api/auth/signup-profile', {
         method: 'POST',
@@ -263,19 +279,26 @@ export default function ProfileSignupForm() {
         body: JSON.stringify(userData)
       })
 
+      const responseData = await response.json()
+      console.log('API response:', { status: response.status, data: responseData })
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to create profile')
+        throw new Error(responseData.message || `HTTP ${response.status}: Failed to create profile`)
       }
 
-      const { profile } = await response.json()
+      const { profile } = responseData
+      console.log('Profile created successfully:', profile)
       
       // Redirect to success page or dashboard
-      router.push(`/profile/${profile.slug}?welcome=true`)
+      if (profile?.slug) {
+        router.push(`/profile/${profile.slug}?welcome=true`)
+      } else {
+        router.push('/dashboard?welcome=true')
+      }
       
-    } catch (error) {
-      console.error('Signup error:', error)
-      setSubmitError(error instanceof Error ? error.message : 'An unexpected error occurred')
+    } catch (error: any) {
+      console.error('Signup submission error:', error)
+      setSubmitError(error.message || 'An unexpected error occurred while creating your profile. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -608,7 +631,8 @@ export default function ProfileSignupForm() {
       {/* Error Message */}
       {submitError && (
         <div className="mt-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
-          {submitError}
+          <p className="font-medium">Error creating profile:</p>
+          <p>{submitError}</p>
         </div>
       )}
 
