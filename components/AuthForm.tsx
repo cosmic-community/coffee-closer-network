@@ -76,7 +76,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
         {isSignUp && (
           <div>
             <label htmlFor="fullName" className="block text-sm font-medium text-neutral-700 mb-2">
-              Full Name
+              Full Name *
             </label>
             <input
               type="text"
@@ -93,7 +93,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
 
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-2">
-            Email Address
+            Email Address *
           </label>
           <input
             type="email"
@@ -109,7 +109,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
 
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-2">
-            Password
+            Password *
           </label>
           <input
             type="password"
@@ -119,7 +119,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
             value={formData.password}
             onChange={handleChange}
             className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
-            placeholder={isSignUp ? "Create a password" : "Enter your password"}
+            placeholder={isSignUp ? "Create a password (8+ characters)" : "Enter your password"}
             minLength={isSignUp ? 8 : undefined}
           />
           {isSignUp && (
@@ -131,7 +131,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
           <>
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 mb-2">
-                Confirm Password
+                Confirm Password *
               </label>
               <input
                 type="password"
@@ -148,7 +148,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
 
             <div>
               <label htmlFor="currentRole" className="block text-sm font-medium text-neutral-700 mb-2">
-                Current Role
+                Current Role *
               </label>
               <input
                 type="text"
@@ -164,12 +164,13 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
 
             <div>
               <label htmlFor="company" className="block text-sm font-medium text-neutral-700 mb-2">
-                Company
+                Company *
               </label>
               <input
                 type="text"
                 id="company"
                 name="company"
+                required
                 value={formData.company}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
@@ -179,7 +180,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
 
             <div>
               <label htmlFor="seniorityLevel" className="block text-sm font-medium text-neutral-700 mb-2">
-                Seniority Level
+                Seniority Level *
               </label>
               <select
                 id="seniorityLevel"
@@ -191,20 +192,16 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
               >
                 <option value="">Select your seniority level</option>
                 <option value="SDR">SDR (Sales Development Rep)</option>
-                <option value="BDR">BDR (Business Development Rep)</option>
-                <option value="AE">AE (Account Executive)</option>
+                <option value="AE">Account Executive</option>
                 <option value="SR_AE">Senior Account Executive</option>
-                <option value="AM">Account Manager</option>
-                <option value="CSM">Customer Success Manager</option>
                 <option value="MANAGER">Sales Manager</option>
-                <option value="DIRECTOR">Sales Director</option>
                 <option value="VP">VP of Sales</option>
               </select>
             </div>
 
             <div>
               <label htmlFor="industryVertical" className="block text-sm font-medium text-neutral-700 mb-2">
-                Industry Vertical
+                Industry Vertical *
               </label>
               <select
                 id="industryVertical"
@@ -228,11 +225,12 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
 
             <div>
               <label htmlFor="bio" className="block text-sm font-medium text-neutral-700 mb-2">
-                Bio / Introduction
+                Bio / Introduction *
               </label>
               <textarea
                 id="bio"
                 name="bio"
+                required
                 rows={4}
                 value={formData.bio}
                 onChange={handleChange}
@@ -261,7 +259,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 and{' '}
                 <Link href="/privacy" className="text-coffee-600 hover:text-coffee-700">
                   Privacy Policy
-                </Link>
+                </Link> *
               </label>
             </div>
           </>

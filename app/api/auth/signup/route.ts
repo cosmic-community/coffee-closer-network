@@ -19,10 +19,11 @@ export async function POST(request: NextRequest) {
   try {
     const signupData: SignupData = await request.json()
     
-    console.log('Received basic signup data:', {
+    console.log('Received signup data:', {
       email: signupData.email,
       fullName: signupData.fullName,
       company: signupData.company,
+      currentRole: signupData.currentRole,
       bucketSlug: process.env.COSMIC_BUCKET_SLUG
     })
 
@@ -35,10 +36,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate required fields
-    if (!signupData.fullName || !signupData.email || !signupData.password || !signupData.confirmPassword) {
+    // Validate required fields with proper error messages
+    const requiredFields = {
+      fullName: 'Full name',
+      email: 'Email address',
+      password: 'Password',
+      confirmPassword: 'Password confirmation',
+      currentRole: 'Current role',
+      company: 'Company',
+      seniorityLevel: 'Seniority level',
+      industryVertical: 'Industry vertical'
+    }
+
+    const missingFields: string[] = []
+    for (const [field, label] of Object.entries(requiredFields)) {
+      const value = signupData[field as keyof SignupData]
+      if (!value || (typeof value === 'string' && value.trim().length === 0)) {
+        missingFields.push(label)
+      }
+    }
+
+    if (missingFields.length > 0) {
       return NextResponse.json(
-        { message: 'Missing required fields' },
+        { message: `Missing required fields: ${missingFields.join(', ')}` },
         { status: 400 }
       )
     }
@@ -78,12 +98,12 @@ export async function POST(request: NextRequest) {
 
     // Check if user already exists
     try {
-      const existingUser = await cosmic.objects.findOne({
+      const existingUser = await cosmic.objects.find({
         type: 'user-profiles',
-        'metadata.email': signupData.email
+        'metadata.email_address': signupData.email
       })
       
-      if (existingUser) {
+      if (existingUser.objects && existingUser.objects.length > 0) {
         return NextResponse.json(
           { message: 'A user with this email already exists' },
           { status: 409 }
@@ -109,7 +129,28 @@ export async function POST(request: NextRequest) {
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
 
-    // Create user profile in Cosmic
+    // Map seniority level to proper format
+    const seniorityMapping: Record<string, { key: string; value: string }> = {
+      'SDR': { key: 'SDR', value: 'SDR (Sales Development Rep)' },
+      'AE': { key: 'AE', value: 'Account Executive' },
+      'SR_AE': { key: 'SR_AE', value: 'Senior Account Executive' },
+      'MANAGER': { key: 'MANAGER', value: 'Sales Manager' },
+      'VP': { key: 'VP', value: 'VP of Sales' }
+    }
+
+    // Map industry vertical to proper format
+    const industryMapping: Record<string, { key: string; value: string }> = {
+      'SAAS': { key: 'SAAS', value: 'SaaS' },
+      'FINTECH': { key: 'FINTECH', value: 'Fintech' },
+      'HEALTHCARE': { key: 'HEALTHCARE', value: 'Healthcare' },
+      'EDTECH': { key: 'EDTECH', value: 'EdTech' },
+      'ECOMMERCE': { key: 'ECOMMERCE', value: 'E-commerce' },
+      'MARTECH': { key: 'MARTECH', value: 'MarTech' },
+      'CYBERSECURITY': { key: 'CYBERSECURITY', value: 'Cybersecurity' },
+      'OTHER': { key: 'OTHER', value: 'Other' }
+    }
+
+    // Create user profile in Cosmic with properly mapped fields
     const userData = {
       title: signupData.fullName,
       type: 'user-profiles',
@@ -117,24 +158,28 @@ export async function POST(request: NextRequest) {
       slug: slug,
       metadata: {
         full_name: signupData.fullName,
-        email: signupData.email,
+        email_address: signupData.email,
         password_hash: passwordHash,
         current_role: signupData.currentRole,
         company: signupData.company,
-        seniority_level: {
-          key: signupData.seniorityLevel.toUpperCase().replace(/\s+/g, '_'),
+        seniority_level: seniorityMapping[signupData.seniorityLevel] || {
+          key: 'OTHER',
           value: signupData.seniorityLevel
         },
-        industry_vertical: {
-          key: signupData.industryVertical.toUpperCase().replace(/\s+/g, '_'),
+        industry_vertical: industryMapping[signupData.industryVertical] || {
+          key: 'OTHER', 
           value: signupData.industryVertical
         },
-        bio: signupData.bio,
-        profile_complete: false
+        bio: signupData.bio || '',
+        profile_complete: false,
+        account_status: {
+          key: 'ACTIVE',
+          value: 'Active'
+        }
       }
     }
 
-    console.log('Creating basic user profile in coffee-closers-production bucket:', { 
+    console.log('Creating user profile in coffee-closers-production bucket:', { 
       email: signupData.email, 
       slug,
       bucketSlug: process.env.COSMIC_BUCKET_SLUG
@@ -142,7 +187,7 @@ export async function POST(request: NextRequest) {
 
     const response = await cosmic.objects.insertOne(userData)
     
-    console.log('Successfully created basic profile:', {
+    console.log('Successfully created profile:', {
       id: response.object?.id,
       slug: response.object?.slug,
       email: signupData.email,
@@ -157,7 +202,7 @@ export async function POST(request: NextRequest) {
         slug: response.object?.slug,
         fullName: signupData.fullName,
         email: signupData.email,
-        needsProfileSetup: true
+        needsProfileSetup: false
       }
     })
 
