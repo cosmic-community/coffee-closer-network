@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createBucketClient } from '@cosmicjs/sdk';
 
+// Validate bucket configuration
+const bucketSlug = process.env.COSMIC_BUCKET_SLUG;
+const readKey = process.env.COSMIC_READ_KEY;
+const writeKey = process.env.COSMIC_WRITE_KEY;
+
+if (bucketSlug !== 'coffee-closers-production') {
+  console.warn(`Warning: Expected bucket slug "coffee-closers-production" but got "${bucketSlug}"`);
+}
+
 const cosmic = createBucketClient({
-  bucketSlug: process.env.COSMIC_BUCKET_SLUG || '',
-  readKey: process.env.COSMIC_READ_KEY || '',
-  writeKey: process.env.COSMIC_WRITE_KEY || '',
+  bucketSlug: bucketSlug || '',
+  readKey: readKey || '',
+  writeKey: writeKey || '',
 });
 
 export async function POST(request: NextRequest) {
   try {
     const profileData = await request.json();
+
+    console.log('Setting up profile in bucket:', bucketSlug);
 
     // Create user profile in Cosmic
     const response = await cosmic.objects.insertOne({
@@ -41,6 +52,11 @@ export async function POST(request: NextRequest) {
         status: 'Active',
         profile_complete: true
       },
+    });
+
+    console.log('Profile created successfully in coffee-closers-production bucket:', {
+      id: response.object?.id,
+      slug: response.object?.slug
     });
 
     return NextResponse.json({ 

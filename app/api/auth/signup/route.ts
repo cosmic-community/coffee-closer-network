@@ -22,8 +22,18 @@ export async function POST(request: NextRequest) {
     console.log('Received basic signup data:', {
       email: signupData.email,
       fullName: signupData.fullName,
-      company: signupData.company
+      company: signupData.company,
+      bucketSlug: process.env.COSMIC_BUCKET_SLUG
     })
+
+    // Validate that we're using the correct bucket
+    if (process.env.COSMIC_BUCKET_SLUG !== 'coffee-closers-production') {
+      console.error('Incorrect bucket slug configured:', process.env.COSMIC_BUCKET_SLUG)
+      return NextResponse.json(
+        { message: 'Server configuration error. Please contact support.' },
+        { status: 500 }
+      )
+    }
 
     // Validate required fields
     if (!signupData.fullName || !signupData.email || !signupData.password || !signupData.confirmPassword) {
@@ -124,14 +134,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('Creating basic user profile:', { email: signupData.email, slug })
+    console.log('Creating basic user profile in coffee-closers-production bucket:', { 
+      email: signupData.email, 
+      slug,
+      bucketSlug: process.env.COSMIC_BUCKET_SLUG
+    })
 
     const response = await cosmic.objects.insertOne(userData)
     
     console.log('Successfully created basic profile:', {
       id: response.object?.id,
       slug: response.object?.slug,
-      email: signupData.email
+      email: signupData.email,
+      bucketSlug: process.env.COSMIC_BUCKET_SLUG
     })
 
     // Return success without sensitive data
@@ -151,7 +166,8 @@ export async function POST(request: NextRequest) {
       message: error.message,
       status: error.status,
       response: error.response?.data,
-      stack: error.stack
+      stack: error.stack,
+      bucketSlug: process.env.COSMIC_BUCKET_SLUG
     })
     
     // Provide more specific error messages
@@ -172,7 +188,7 @@ export async function POST(request: NextRequest) {
       )
     } else if (error.status === 404 && error.message?.includes('bucket')) {
       return NextResponse.json(
-        { message: 'Configuration error: Cosmic bucket not found. Please check your COSMIC_BUCKET_SLUG environment variable.' },
+        { message: 'Configuration error: Cosmic bucket "coffee-closers-production" not found. Please check your COSMIC_BUCKET_SLUG environment variable.' },
         { status: 500 }
       )
     }

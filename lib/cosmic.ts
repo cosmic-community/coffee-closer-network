@@ -18,6 +18,11 @@ console.log('Cosmic Environment Variables:', {
   actualBucketSlug: process.env.COSMIC_BUCKET_SLUG
 })
 
+// Validate that the bucket slug is set to the correct value
+if (process.env.COSMIC_BUCKET_SLUG && process.env.COSMIC_BUCKET_SLUG !== 'coffee-closers-production') {
+  console.warn(`Warning: COSMIC_BUCKET_SLUG is set to "${process.env.COSMIC_BUCKET_SLUG}" but should be "coffee-closers-production"`)
+}
+
 export const cosmic = createBucketClient({
   bucketSlug: process.env.COSMIC_BUCKET_SLUG as string,
   readKey: process.env.COSMIC_READ_KEY as string,

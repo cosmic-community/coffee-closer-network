@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    console.log('Login attempt for:', body.email)
+    console.log('Login attempt for:', body.email, 'using bucket:', process.env.COSMIC_BUCKET_SLUG)
     
     // Validate input data
     const validation = validateLoginData(body)
@@ -42,6 +42,15 @@ export async function POST(request: NextRequest) {
     
     if (!bucketSlug || !readKey) {
       console.error('Missing environment variables')
+      return NextResponse.json(
+        { error: 'Server configuration error. Please contact support.' },
+        { status: 500 }
+      )
+    }
+
+    // Validate that we're using the correct bucket
+    if (bucketSlug !== 'coffee-closers-production') {
+      console.error('Incorrect bucket slug configured:', bucketSlug)
       return NextResponse.json(
         { error: 'Server configuration error. Please contact support.' },
         { status: 500 }
