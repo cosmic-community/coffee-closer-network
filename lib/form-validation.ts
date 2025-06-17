@@ -7,13 +7,38 @@ export function validateSignupForm(formData: any, step: number): FormErrors {
 
   switch (step) {
     case 1:
-      // Basic Information
+      // Account Information
       if (!formData.fullName?.trim()) {
         errors.fullName = 'Full name is required'
       } else if (formData.fullName.trim().length < 2) {
         errors.fullName = 'Full name must be at least 2 characters'
       }
 
+      if (!formData.email?.trim()) {
+        errors.email = 'Email address is required'
+      } else if (!isValidEmail(formData.email)) {
+        errors.email = 'Please enter a valid email address'
+      }
+
+      if (!formData.password?.trim()) {
+        errors.password = 'Password is required'
+      } else if (formData.password.length < 8) {
+        errors.password = 'Password must be at least 8 characters long'
+      }
+
+      if (!formData.confirmPassword?.trim()) {
+        errors.confirmPassword = 'Please confirm your password'
+      } else if (formData.password !== formData.confirmPassword) {
+        errors.confirmPassword = 'Passwords do not match'
+      }
+
+      if (!formData.terms) {
+        errors.terms = 'You must agree to the terms and conditions'
+      }
+      break
+
+    case 2:
+      // Professional Information
       if (!formData.currentRole?.trim()) {
         errors.currentRole = 'Current role is required'
       }
@@ -31,7 +56,7 @@ export function validateSignupForm(formData: any, step: number): FormErrors {
       }
       break
 
-    case 2:
+    case 3:
       // Professional Details
       if (!formData.timezone) {
         errors.timezone = 'Timezone is required'
@@ -50,7 +75,7 @@ export function validateSignupForm(formData: any, step: number): FormErrors {
       }
       break
 
-    case 3:
+    case 4:
       // About You
       if (!formData.bio?.trim()) {
         errors.bio = 'Bio is required'
@@ -61,7 +86,7 @@ export function validateSignupForm(formData: any, step: number): FormErrors {
       }
       break
 
-    case 4:
+    case 5:
       // Preferences
       if (!formData.preferredChatTimes || formData.preferredChatTimes.length === 0) {
         errors.preferredChatTimes = 'Please select at least one preferred chat time'
@@ -74,6 +99,11 @@ export function validateSignupForm(formData: any, step: number): FormErrors {
   }
 
   return errors
+}
+
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
 }
 
 function isValidUrl(url: string): boolean {
@@ -90,11 +120,6 @@ function isValidImageFile(file: File): boolean {
   const maxSize = 5 * 1024 * 1024 // 5MB
   
   return validTypes.includes(file.type) && file.size <= maxSize
-}
-
-export function validateEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
 }
 
 export function validatePassword(password: string): { isValid: boolean; errors: string[] } {

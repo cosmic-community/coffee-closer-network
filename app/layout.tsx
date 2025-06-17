@@ -4,6 +4,7 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import { AuthProvider } from '@/components/AuthProvider'
+import DebugWindow from '@/components/DebugWindow'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -29,6 +30,7 @@ export default function RootLayout({
             </main>
             <Footer />
           </div>
+          <DebugWindow />
         </AuthProvider>
       </body>
     </html>

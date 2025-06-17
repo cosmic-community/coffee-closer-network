@@ -156,14 +156,20 @@ export default function ProfileSignupForm() {
   }
 
   const validateCurrentStep = () => {
+    console.log('Validating step', currentStep, 'with data:', formData)
     const stepValidation = validateSignupForm(formData, currentStep)
+    console.log('Validation result:', stepValidation)
     setErrors(stepValidation)
     return Object.keys(stepValidation).length === 0
   }
 
   const handleNext = () => {
+    console.log('Attempting to proceed to next step from step', currentStep)
     if (validateCurrentStep()) {
+      console.log('Validation passed, moving to next step')
       setCurrentStep(prev => Math.min(prev + 1, totalSteps))
+    } else {
+      console.log('Validation failed, staying on current step')
     }
   }
 
