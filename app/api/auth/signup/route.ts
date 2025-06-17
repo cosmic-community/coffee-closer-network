@@ -37,22 +37,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate required fields with proper error messages
-    const requiredFields = {
-      fullName: 'Full name',
-      email: 'Email address',
-      password: 'Password',
-      confirmPassword: 'Password confirmation',
-      currentRole: 'Current role',
-      company: 'Company',
-      seniorityLevel: 'Seniority level',
-      industryVertical: 'Industry vertical'
-    }
+    const requiredFieldChecks = [
+      { field: signupData.fullName, name: 'Full name' },
+      { field: signupData.email, name: 'Email address' },
+      { field: signupData.password, name: 'Password' },
+      { field: signupData.confirmPassword, name: 'Password confirmation' },
+      { field: signupData.currentRole, name: 'Current role' },
+      { field: signupData.company, name: 'Company' },
+      { field: signupData.seniorityLevel, name: 'Seniority level' },
+      { field: signupData.industryVertical, name: 'Industry vertical' }
+    ]
 
     const missingFields: string[] = []
-    for (const [field, label] of Object.entries(requiredFields)) {
-      const value = signupData[field as keyof SignupData]
-      if (!value || (typeof value === 'string' && value.trim().length === 0)) {
-        missingFields.push(label)
+    for (const check of requiredFieldChecks) {
+      if (!check.field || (typeof check.field === 'string' && check.field.trim().length === 0)) {
+        missingFields.push(check.name)
       }
     }
 
