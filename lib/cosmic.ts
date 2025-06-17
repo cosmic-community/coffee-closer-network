@@ -10,24 +10,53 @@ import type {
   CosmicResponse 
 } from '@/types'
 
-// Debug environment variables
-console.log('Cosmic Environment Variables:', {
-  bucketSlug: process.env.COSMIC_BUCKET_SLUG ? 'SET' : 'MISSING',
-  readKey: process.env.COSMIC_READ_KEY ? 'SET' : 'MISSING',
-  writeKey: process.env.COSMIC_WRITE_KEY ? 'SET' : 'MISSING',
-  actualBucketSlug: process.env.COSMIC_BUCKET_SLUG
-})
+// Debug environment variables - CRITICAL for debugging signup issues
+console.log('=== COSMIC ENVIRONMENT DEBUG ===')
+console.log('COSMIC_BUCKET_SLUG:', process.env.COSMIC_BUCKET_SLUG ? `SET (${process.env.COSMIC_BUCKET_SLUG})` : 'MISSING')
+console.log('COSMIC_READ_KEY:', process.env.COSMIC_READ_KEY ? `SET (${process.env.COSMIC_READ_KEY.substring(0, 10)}...)` : 'MISSING')
+console.log('COSMIC_WRITE_KEY:', process.env.COSMIC_WRITE_KEY ? `SET (${process.env.COSMIC_WRITE_KEY.substring(0, 10)}...)` : 'MISSING')
+console.log('================================')
 
-// Validate that the bucket slug is set to the correct value
-if (process.env.COSMIC_BUCKET_SLUG && process.env.COSMIC_BUCKET_SLUG !== 'coffee-closers-production') {
-  console.warn(`Warning: COSMIC_BUCKET_SLUG is set to "${process.env.COSMIC_BUCKET_SLUG}" but should be "coffee-closers-production"`)
+// Validate required environment variables
+if (!process.env.COSMIC_BUCKET_SLUG) {
+  throw new Error('COSMIC_BUCKET_SLUG environment variable is required')
+}
+
+if (!process.env.COSMIC_READ_KEY) {
+  throw new Error('COSMIC_READ_KEY environment variable is required')
+}
+
+if (!process.env.COSMIC_WRITE_KEY) {
+  throw new Error('COSMIC_WRITE_KEY environment variable is required')
+}
+
+// Validate that we're using the correct bucket
+if (process.env.COSMIC_BUCKET_SLUG !== 'coffee-closers-production') {
+  console.warn(`WARNING: Expected bucket slug "coffee-closers-production" but got "${process.env.COSMIC_BUCKET_SLUG}"`)
 }
 
 export const cosmic = createBucketClient({
-  bucketSlug: process.env.COSMIC_BUCKET_SLUG as string,
-  readKey: process.env.COSMIC_READ_KEY as string,
-  writeKey: process.env.COSMIC_WRITE_KEY as string,
+  bucketSlug: process.env.COSMIC_BUCKET_SLUG,
+  readKey: process.env.COSMIC_READ_KEY,
+  writeKey: process.env.COSMIC_WRITE_KEY,
 })
+
+// Test connection function
+export async function testCosmicConnection(): Promise<boolean> {
+  try {
+    console.log('Testing Cosmic connection...')
+    const response = await cosmic.objects.find({ type: 'user-profiles' }).limit(1)
+    console.log('Cosmic connection successful!')
+    return true
+  } catch (error: any) {
+    console.error('Cosmic connection failed:', {
+      message: error.message,
+      status: error.status,
+      bucketSlug: process.env.COSMIC_BUCKET_SLUG
+    })
+    return false
+  }
+}
 
 // Helper function for error handling
 function hasStatus(error: unknown): error is { status: number } {
@@ -69,7 +98,7 @@ export async function getUserProfileByEmail(email: string): Promise<UserProfile 
   try {
     const response = await cosmic.objects.findOne({
       type: 'user-profiles',
-      'metadata.email': email
+      'metadata.email_address': email
     }).depth(1);
     return response.object as UserProfile;
   } catch (error) {
