@@ -24,27 +24,54 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user already exists
+    // Check if user already exists by email or slug
     try {
-      const existingUser = await cosmic.objects.findOne({
-        type: 'user-profiles',
-        slug: userData.slug
-      })
+      let existingUser = null
+      
+      // Check by email if provided
+      if (userData.metadata.email) {
+        try {
+          const emailCheck = await cosmic.objects.findOne({
+            type: 'user-profiles',
+            'metadata.email': userData.metadata.email
+          })
+          if (emailCheck) {
+            existingUser = emailCheck
+          }
+        } catch (emailError: any) {
+          if (emailError?.status !== 404) {
+            throw emailError
+          }
+        }
+      }
+      
+      // Check by slug if not found by email
+      if (!existingUser) {
+        try {
+          const slugCheck = await cosmic.objects.findOne({
+            type: 'user-profiles',
+            slug: userData.slug
+          })
+          if (slugCheck) {
+            existingUser = slugCheck
+          }
+        } catch (slugError: any) {
+          if (slugError?.status !== 404) {
+            throw slugError
+          }
+        }
+      }
       
       if (existingUser) {
-        console.log('User already exists with slug:', userData.slug)
+        console.log('User already exists:', { slug: userData.slug, email: userData.metadata.email })
         return NextResponse.json(
-          { message: 'A user with this name already exists' },
+          { message: 'A user with this email or name already exists' },
           { status: 409 }
         )
       }
     } catch (error: any) {
-      // If 404, user doesn't exist - continue with creation
-      if (error?.status !== 404) {
-        console.error('Error checking for existing user:', error)
-        throw error
-      }
-      console.log('No existing user found, proceeding with creation')
+      console.error('Error checking for existing user:', error)
+      throw error
     }
 
     // Log the data being sent to Cosmic
@@ -87,6 +114,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { message: 'Permission denied. Please check your API permissions.' },
         { status: 403 }
+      )
+    } else if (error.status === 404 && error.message?.includes('bucket')) {
+      return NextResponse.json(
+        { message: 'Configuration error: Cosmic bucket not found. Please check your COSMIC_BUCKET_SLUG environment variable.' },
+        { status: 500 }
       )
     }
     

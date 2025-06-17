@@ -1,192 +1,185 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createBucketClient } from '@cosmicjs/sdk'
-import { createSession, createSessionResponse } from '@/lib/session'
-import { hashPassword } from '@/lib/password-utils'
-import { validateSignupData } from '@/lib/validation'
+import { cosmic } from '@/lib/cosmic'
+import bcrypt from 'bcryptjs'
+
+interface SignupData {
+  fullName: string
+  email: string
+  password: string
+  confirmPassword: string
+  currentRole: string
+  company: string
+  seniorityLevel: string
+  industryVertical: string
+  bio: string
+  terms: boolean
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const signupData: SignupData = await request.json()
     
-    console.log('Signup attempt for:', body.email)
-    
-    // Validate input data
-    const validation = validateSignupData(body)
-    if (!validation.isValid) {
-      console.log('Validation errors:', validation.errors)
+    console.log('Received basic signup data:', {
+      email: signupData.email,
+      fullName: signupData.fullName,
+      company: signupData.company
+    })
+
+    // Validate required fields
+    if (!signupData.fullName || !signupData.email || !signupData.password || !signupData.confirmPassword) {
       return NextResponse.json(
-        { error: validation.errors[0] },
+        { message: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    // Check environment variables
-    const bucketSlug = process.env.COSMIC_BUCKET_SLUG
-    const readKey = process.env.COSMIC_READ_KEY
-    const writeKey = process.env.COSMIC_WRITE_KEY
-    
-    if (!bucketSlug || !readKey || !writeKey) {
-      console.error('Missing environment variables')
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(signupData.email)) {
       return NextResponse.json(
-        { error: 'Server configuration error. Please contact support.' },
-        { status: 500 }
+        { message: 'Invalid email format' },
+        { status: 400 }
       )
     }
 
-    // Create Cosmic client
-    const cosmic = createBucketClient({
-      bucketSlug,
-      readKey,
-      writeKey,
-    })
+    // Validate password match
+    if (signupData.password !== signupData.confirmPassword) {
+      return NextResponse.json(
+        { message: 'Passwords do not match' },
+        { status: 400 }
+      )
+    }
+
+    // Validate password strength
+    if (signupData.password.length < 8) {
+      return NextResponse.json(
+        { message: 'Password must be at least 8 characters long' },
+        { status: 400 }
+      )
+    }
+
+    // Validate terms acceptance
+    if (!signupData.terms) {
+      return NextResponse.json(
+        { message: 'You must accept the terms and conditions' },
+        { status: 400 }
+      )
+    }
 
     // Check if user already exists
     try {
-      console.log('Checking for existing user...')
-      const existingUsers = await cosmic.objects.find({
+      const existingUser = await cosmic.objects.findOne({
         type: 'user-profiles',
-        'metadata.email': body.email.trim().toLowerCase()
-      }).props(['id'])
-
-      if (existingUsers.objects && existingUsers.objects.length > 0) {
-        console.log('User already exists')
+        'metadata.email': signupData.email
+      })
+      
+      if (existingUser) {
         return NextResponse.json(
-          { error: 'An account with this email already exists' },
+          { message: 'A user with this email already exists' },
           { status: 409 }
         )
       }
     } catch (error: any) {
-      if (error.status !== 404) {
-        console.error('Error checking existing user:', error)
-        return NextResponse.json(
-          { error: 'Failed to check existing user' },
-          { status: 500 }
-        )
+      // If 404, user doesn't exist - continue with creation
+      if (error?.status !== 404) {
+        console.error('Error checking for existing user:', error)
+        throw error
       }
-      // 404 is expected when no users exist
     }
 
     // Hash password
-    console.log('Hashing password...')
-    const hashedPassword = await hashPassword(body.password)
+    const saltRounds = 12
+    const passwordHash = await bcrypt.hash(signupData.password, saltRounds)
 
-    // Generate slug
-    const slug = body.fullName
+    // Generate slug from full name
+    const slug = signupData.fullName
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '')
-      + '-' + Math.random().toString(36).substr(2, 9)
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
 
-    // Prepare metadata
-    const metadata = {
-      full_name: body.fullName.trim(),
-      email: body.email.trim().toLowerCase(),
-      password_hash: hashedPassword,
-      current_role: body.currentRole.trim(),
-      company: body.company?.trim() || '',
-      seniority_level: {
-        key: body.seniorityLevel,
-        value: getSeniorityLevelValue(body.seniorityLevel)
-      },
-      industry_vertical: {
-        key: body.industryVertical,
-        value: getIndustryVerticalValue(body.industryVertical)
-      },
-      bio: body.bio?.trim() || '',
-      timezone: {
-        key: 'EST',
-        value: 'Eastern Time (EST/EDT)'
-      },
-      sales_focus: {
-        key: 'MID_MARKET',
-        value: 'Mid-Market'
-      },
-      preferred_chat_times: [],
-      topics_to_discuss: [],
-      async_communication: false
+    // Create user profile in Cosmic
+    const userData = {
+      title: signupData.fullName,
+      type: 'user-profiles',
+      status: 'published',
+      slug: slug,
+      metadata: {
+        full_name: signupData.fullName,
+        email: signupData.email,
+        password_hash: passwordHash,
+        current_role: signupData.currentRole,
+        company: signupData.company,
+        seniority_level: {
+          key: signupData.seniorityLevel.toUpperCase().replace(/\s+/g, '_'),
+          value: signupData.seniorityLevel
+        },
+        industry_vertical: {
+          key: signupData.industryVertical.toUpperCase().replace(/\s+/g, '_'),
+          value: signupData.industryVertical
+        },
+        bio: signupData.bio,
+        profile_complete: false
+      }
     }
 
-    console.log('Creating user in Cosmic...')
+    console.log('Creating basic user profile:', { email: signupData.email, slug })
+
+    const response = await cosmic.objects.insertOne(userData)
     
-    // Create user profile in Cosmic
-    const userProfile = await cosmic.objects.insertOne({
-      title: body.fullName.trim(),
-      slug: slug,
-      type: 'user-profiles',
-      metadata: metadata
+    console.log('Successfully created basic profile:', {
+      id: response.object?.id,
+      slug: response.object?.slug,
+      email: signupData.email
     })
 
-    console.log('User created successfully with ID:', userProfile.object.id)
+    // Return success without sensitive data
+    return NextResponse.json({
+      message: 'Account created successfully',
+      user: {
+        id: response.object?.id,
+        slug: response.object?.slug,
+        fullName: signupData.fullName,
+        email: signupData.email,
+        needsProfileSetup: true
+      }
+    })
 
-    // Create session
-    const sessionUser = {
-      id: userProfile.object.id,
-      email: body.email.trim().toLowerCase(),
-      fullName: body.fullName.trim(),
-      isAdmin: false
-    }
-
-    console.log('Creating session...')
-    const token = await createSession(sessionUser)
-    
-    return createSessionResponse({
-      success: true,
-      message: 'Account created successfully!',
-      user: sessionUser
-    }, token)
-    
   } catch (error: any) {
-    console.error('Signup error:', error)
+    console.error('Detailed signup error:', {
+      message: error.message,
+      status: error.status,
+      response: error.response?.data,
+      stack: error.stack
+    })
     
-    if (error.message?.includes('Server configuration error')) {
+    // Provide more specific error messages
+    if (error.status === 400) {
       return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
+        { message: 'Invalid data provided. Please check your form inputs.' },
+        { status: 400 }
       )
-    } else if (error.message?.includes('already exists')) {
+    } else if (error.status === 401) {
       return NextResponse.json(
-        { error: 'An account with this email already exists' },
-        { status: 409 }
+        { message: 'Authentication failed. Please check your API credentials.' },
+        { status: 401 }
       )
-    } else if (error.status === 400 || error.status === 409) {
+    } else if (error.status === 403) {
       return NextResponse.json(
-        { error: error.message || 'Invalid request' },
-        { status: error.status }
+        { message: 'Permission denied. Please check your API permissions.' },
+        { status: 403 }
       )
-    } else {
+    } else if (error.status === 404 && error.message?.includes('bucket')) {
       return NextResponse.json(
-        { error: 'An unexpected error occurred during signup. Please try again.' },
+        { message: 'Configuration error: Cosmic bucket not found. Please check your COSMIC_BUCKET_SLUG environment variable.' },
         { status: 500 }
       )
     }
+    
+    return NextResponse.json(
+      { message: `Failed to create account: ${error.message || 'Unknown error'}` },
+      { status: 500 }
+    )
   }
-}
-
-function getSeniorityLevelValue(key: string): string {
-  const levels: Record<string, string> = {
-    'SDR': 'SDR (Sales Development Rep)',
-    'BDR': 'BDR (Business Development Rep)',
-    'AE': 'AE (Account Executive)',
-    'SR_AE': 'Senior Account Executive',
-    'AM': 'Account Manager',
-    'CSM': 'Customer Success Manager',
-    'MANAGER': 'Sales Manager',
-    'DIRECTOR': 'Sales Director',
-    'VP': 'VP of Sales'
-  }
-  return levels[key] || key
-}
-
-function getIndustryVerticalValue(key: string): string {
-  const industries: Record<string, string> = {
-    'SAAS': 'SaaS',
-    'FINTECH': 'Fintech',
-    'HEALTHCARE': 'Healthcare',
-    'EDTECH': 'EdTech',
-    'ECOMMERCE': 'E-commerce',
-    'MARTECH': 'MarTech',
-    'CYBERSECURITY': 'Cybersecurity',
-    'OTHER': 'Other'
-  }
-  return industries[key] || key
 }

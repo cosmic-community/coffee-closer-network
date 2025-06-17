@@ -7,6 +7,9 @@ import { uploadFile } from '@/lib/file-upload'
 
 interface FormData {
   fullName: string
+  email: string
+  password: string
+  confirmPassword: string
   currentRole: string
   company: string
   linkedinUrl: string
@@ -20,10 +23,14 @@ interface FormData {
   preferredChatTimes: string[]
   topicsToDiscuss: string[]
   asyncCommunication: boolean
+  terms: boolean
 }
 
 const INITIAL_FORM_DATA: FormData = {
   fullName: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
   currentRole: '',
   company: '',
   linkedinUrl: '',
@@ -36,7 +43,8 @@ const INITIAL_FORM_DATA: FormData = {
   industryVertical: '',
   preferredChatTimes: [],
   topicsToDiscuss: [],
-  asyncCommunication: false
+  asyncCommunication: false,
+  terms: false
 }
 
 const TIMEZONE_OPTIONS = [
@@ -108,7 +116,7 @@ export default function ProfileSignupForm() {
   const [currentStep, setCurrentStep] = useState(1)
   const router = useRouter()
 
-  const totalSteps = 4
+  const totalSteps = 5
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
@@ -172,12 +180,12 @@ export default function ProfileSignupForm() {
       .replace(/-+/g, '-')
   }
 
-  const checkForDuplicate = async (fullName: string): Promise<boolean> => {
+  const checkForDuplicate = async (email: string, fullName: string): Promise<boolean> => {
     try {
       const response = await fetch('/api/auth/check-duplicate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullName })
+        body: JSON.stringify({ email, fullName })
       })
       
       if (!response.ok) {
@@ -203,14 +211,15 @@ export default function ProfileSignupForm() {
     try {
       console.log('Starting form submission with data:', {
         fullName: formData.fullName,
+        email: formData.email,
         company: formData.company,
         currentRole: formData.currentRole
       })
 
       // Check for duplicate user
-      const isDuplicate = await checkForDuplicate(formData.fullName)
+      const isDuplicate = await checkForDuplicate(formData.email, formData.fullName)
       if (isDuplicate) {
-        setSubmitError('A user with this name already exists. Please choose a different name.')
+        setSubmitError('A user with this email or name already exists. Please use a different email or name.')
         setIsLoading(false)
         return
       }
@@ -237,6 +246,7 @@ export default function ProfileSignupForm() {
         slug: slug,
         metadata: {
           full_name: formData.fullName,
+          email: formData.email,
           current_role: formData.currentRole,
           company: formData.company,
           linkedin_url: formData.linkedinUrl || '',
@@ -261,7 +271,8 @@ export default function ProfileSignupForm() {
           },
           preferred_chat_times: formData.preferredChatTimes,
           topics_to_discuss: formData.topicsToDiscuss,
-          async_communication: formData.asyncCommunication
+          async_communication: formData.asyncCommunication,
+          profile_complete: true
         }
       }
 
@@ -309,7 +320,7 @@ export default function ProfileSignupForm() {
       case 1:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-neutral-900 mb-4">Basic Information</h2>
+            <h2 className="text-xl font-semibold text-neutral-900 mb-4">Account Information</h2>
             
             <div>
               <label htmlFor="fullName" className="block text-sm font-medium text-neutral-700 mb-2">
@@ -330,6 +341,86 @@ export default function ProfileSignupForm() {
               {errors.fullName && <p className="text-red-600 text-sm mt-1">{errors.fullName}</p>}
             </div>
 
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-2">
+                Email Address *
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                required
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500 ${
+                  errors.email ? 'border-red-300' : 'border-neutral-300'
+                }`}
+                placeholder="Enter your email address"
+              />
+              {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-2">
+                Password *
+              </label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                value={formData.password}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500 ${
+                  errors.password ? 'border-red-300' : 'border-neutral-300'
+                }`}
+                placeholder="Create a strong password (8+ characters)"
+              />
+              {errors.password && <p className="text-red-600 text-sm mt-1">{errors.password}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 mb-2">
+                Confirm Password *
+              </label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                required
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500 ${
+                  errors.confirmPassword ? 'border-red-300' : 'border-neutral-300'
+                }`}
+                placeholder="Confirm your password"
+              />
+              {errors.confirmPassword && <p className="text-red-600 text-sm mt-1">{errors.confirmPassword}</p>}
+            </div>
+
+            <div>
+              <label className="flex items-start space-x-2">
+                <input
+                  type="checkbox"
+                  name="terms"
+                  checked={formData.terms}
+                  onChange={handleInputChange}
+                  className="mt-1 h-4 w-4 text-coffee-600 focus:ring-coffee-500 border-neutral-300 rounded"
+                />
+                <span className="text-sm text-neutral-700">
+                  I agree to the <a href="/terms" className="text-coffee-600 hover:text-coffee-700 underline">Terms of Service</a> and <a href="/privacy" className="text-coffee-600 hover:text-coffee-700 underline">Privacy Policy</a> *
+                </span>
+              </label>
+              {errors.terms && <p className="text-red-600 text-sm mt-1">{errors.terms}</p>}
+            </div>
+          </div>
+        )
+
+      case 2:
+        return (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold text-neutral-900 mb-4">Professional Information</h2>
+            
             <div>
               <label htmlFor="currentRole" className="block text-sm font-medium text-neutral-700 mb-2">
                 Current Role *
@@ -400,7 +491,7 @@ export default function ProfileSignupForm() {
           </div>
         )
 
-      case 2:
+      case 3:
         return (
           <div className="space-y-6">
             <h2 className="text-xl font-semibold text-neutral-900 mb-4">Professional Details</h2>
@@ -495,7 +586,7 @@ export default function ProfileSignupForm() {
           </div>
         )
 
-      case 3:
+      case 4:
         return (
           <div className="space-y-6">
             <h2 className="text-xl font-semibold text-neutral-900 mb-4">About You</h2>
@@ -540,7 +631,7 @@ export default function ProfileSignupForm() {
           </div>
         )
 
-      case 4:
+      case 5:
         return (
           <div className="space-y-6">
             <h2 className="text-xl font-semibold text-neutral-900 mb-4">Preferences</h2>

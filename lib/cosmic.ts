@@ -10,6 +10,14 @@ import type {
   CosmicResponse 
 } from '@/types'
 
+// Debug environment variables
+console.log('Cosmic Environment Variables:', {
+  bucketSlug: process.env.COSMIC_BUCKET_SLUG ? 'SET' : 'MISSING',
+  readKey: process.env.COSMIC_READ_KEY ? 'SET' : 'MISSING',
+  writeKey: process.env.COSMIC_WRITE_KEY ? 'SET' : 'MISSING',
+  actualBucketSlug: process.env.COSMIC_BUCKET_SLUG
+})
+
 export const cosmic = createBucketClient({
   bucketSlug: process.env.COSMIC_BUCKET_SLUG as string,
   readKey: process.env.COSMIC_READ_KEY as string,
@@ -49,6 +57,21 @@ export async function getUserProfile(slug: string): Promise<UserProfile | null> 
       return null;
     }
     throw new Error('Failed to fetch user profile');
+  }
+}
+
+export async function getUserProfileByEmail(email: string): Promise<UserProfile | null> {
+  try {
+    const response = await cosmic.objects.findOne({
+      type: 'user-profiles',
+      'metadata.email': email
+    }).depth(1);
+    return response.object as UserProfile;
+  } catch (error) {
+    if (hasStatus(error) && error.status === 404) {
+      return null;
+    }
+    throw new Error('Failed to fetch user profile by email');
   }
 }
 
