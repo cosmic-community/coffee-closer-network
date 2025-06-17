@@ -1,103 +1,105 @@
 import { cosmic } from '@/lib/cosmic'
 import type { UserProfile } from '@/types'
 
+export interface ProfileData {
+  full_name: string
+  email_address?: string
+  current_role: string
+  company: string
+  linkedin_url?: string
+  bio?: string
+  fun_fact?: string
+  profile_picture?: any
+  timezone?: {
+    key: string
+    value: string
+  }
+  seniority_level?: {
+    key: string
+    value: string
+  }
+  sales_focus?: {
+    key: string
+    value: string
+  }
+  industry_vertical?: {
+    key: string
+    value: string
+  }
+  preferred_chat_times?: string[]
+  topics_to_discuss?: string[]
+  async_communication?: boolean
+  profile_complete?: boolean
+  account_status?: {
+    key: string
+    value: string
+  }
+}
+
 export async function getUserProfileById(userId: string): Promise<UserProfile | null> {
   try {
-    if (userId === 'admin') {
-      // Return mock admin profile
-      return {
-        id: 'admin',
-        title: 'Administrator',
-        slug: 'admin',
-        content: '',
-        type_slug: 'user-profiles',
-        created_at: new Date().toISOString(),
-        modified_at: new Date().toISOString(),
-        metadata: {
-          full_name: 'Administrator',
-          email: 'admin@coffeecloser.network',
-          current_role: 'System Administrator',
-          company: 'Coffee Closer Network',
-        }
-      }
-    }
+    const response = await cosmic.objects.find({
+      type: 'user-profiles'
+    }).props(['id', 'title', 'slug', 'metadata']).depth(1)
 
-    const response = await cosmic.objects.findOne({
-      type: 'user-profiles',
-      id: userId
-    }).props(['id', 'title', 'slug', 'content', 'metadata', 'created_at', 'modified_at']).depth(1)
-
-    return response.object as UserProfile
-  } catch (error) {
-    console.error('Error fetching user profile by ID:', error)
-    if ((error as any)?.status === 404) {
+    if (!response.objects || response.objects.length === 0) {
       return null
     }
-    throw new Error('Failed to fetch user profile')
+
+    // Find profile by matching the user ID or email
+    const profile = response.objects.find((obj: any) => 
+      obj.id === userId || 
+      obj.metadata?.email_address === userId ||
+      obj.slug === userId
+    )
+
+    return profile || null
+  } catch (error) {
+    console.error('Error fetching user profile:', error)
+    return null
   }
 }
 
-export async function getUserProfileByEmail(email: string): Promise<UserProfile | null> {
+export async function updateUserProfile(userId: string, profileData: ProfileData): Promise<UserProfile> {
   try {
-    const response = await cosmic.objects.findOne({
-      type: 'user-profiles',
-      'metadata.email_address': email.toLowerCase()
-    }).props(['id', 'title', 'slug', 'content', 'metadata', 'created_at', 'modified_at']).depth(1)
-
-    return response.object as UserProfile
-  } catch (error) {
-    console.error('Error fetching user profile by email:', error)
-    if ((error as any)?.status === 404) {
-      return null
+    // First find the existing profile
+    const existingProfile = await getUserProfileById(userId)
+    
+    if (!existingProfile) {
+      throw new Error('Profile not found')
     }
-    throw new Error('Failed to fetch user profile by email')
+
+    // Update the profile
+    const response = await cosmic.objects.updateOne(existingProfile.id, {
+      metadata: {
+        ...existingProfile.metadata,
+        ...profileData
+      }
+    })
+
+    return response.object
+  } catch (error) {
+    console.error('Error updating user profile:', error)
+    throw error
   }
 }
 
-export async function createUserProfile(profileData: {
+export async function createUserProfile(profileData: ProfileData & { 
   title: string
-  slug: string
-  metadata: UserProfile['metadata']
+  slug: string 
 }): Promise<UserProfile> {
   try {
     const response = await cosmic.objects.insertOne({
-      type: 'user-profiles',
       title: profileData.title,
+      type: 'user-profiles',
+      status: 'published',
       slug: profileData.slug,
-      metadata: profileData.metadata
+      metadata: profileData
     })
 
-    return response.object as UserProfile
+    return response.object
   } catch (error) {
     console.error('Error creating user profile:', error)
-    throw new Error('Failed to create user profile')
-  }
-}
-
-export async function updateUserProfile(userId: string, metadata: Partial<UserProfile['metadata']>): Promise<UserProfile> {
-  try {
-    const response = await cosmic.objects.updateOne(userId, {
-      metadata
-    })
-
-    return response.object as UserProfile
-  } catch (error) {
-    console.error('Error updating user profile:', error)
-    throw new Error('Failed to update user profile')
-  }
-}
-
-export async function checkUserExists(email: string): Promise<boolean> {
-  try {
-    await cosmic.objects.findOne({
-      type: 'user-profiles',
-      'metadata.email_address': email.toLowerCase()
-    })
-    return true
-  } catch (error) {
-    if ((error as any)?.status === 404) {
-      return false
-    }
     throw error
   }
 }

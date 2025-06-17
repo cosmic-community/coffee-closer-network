@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { validateSignupForm, type FormErrors } from '@/lib/form-validation'
-import { uploadFile } from '@/lib/file-upload'
 
 interface FormData {
   fullName: string
@@ -156,20 +155,14 @@ export default function ProfileSignupForm() {
   }
 
   const validateCurrentStep = () => {
-    console.log('Validating step', currentStep, 'with data:', formData)
     const stepValidation = validateSignupForm(formData, currentStep)
-    console.log('Validation result:', stepValidation)
     setErrors(stepValidation)
     return Object.keys(stepValidation).length === 0
   }
 
   const handleNext = () => {
-    console.log('Attempting to proceed to next step from step', currentStep)
     if (validateCurrentStep()) {
-      console.log('Validation passed, moving to next step')
       setCurrentStep(prev => Math.min(prev + 1, totalSteps))
-    } else {
-      console.log('Validation failed, staying on current step')
     }
   }
 
@@ -186,26 +179,6 @@ export default function ProfileSignupForm() {
       .replace(/-+/g, '-')
   }
 
-  const checkForDuplicate = async (email: string, fullName: string): Promise<boolean> => {
-    try {
-      const response = await fetch('/api/auth/check-duplicate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, fullName })
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to check for duplicates')
-      }
-      
-      const { exists } = await response.json()
-      return exists
-    } catch (error) {
-      console.error('Error checking for duplicate:', error)
-      return false
-    }
-  }
-
   const handleSubmit = async () => {
     if (!validateCurrentStep()) {
       return
@@ -215,57 +188,22 @@ export default function ProfileSignupForm() {
     setSubmitError(null)
 
     try {
-      console.log('Starting form submission with data:', {
-        fullName: formData.fullName,
-        email: formData.email,
-        company: formData.company,
-        currentRole: formData.currentRole
-      })
-
-      // Check for duplicate user
-      const isDuplicate = await checkForDuplicate(formData.email, formData.fullName)
-      if (isDuplicate) {
-        setSubmitError('A user with this email or name already exists. Please use a different email or name.')
-        setIsLoading(false)
-        return
-      }
-
-      // Upload profile picture if provided
-      let uploadedImage = null
-      if (formData.profilePicture) {
-        try {
-          console.log('Uploading profile picture...')
-          uploadedImage = await uploadFile(formData.profilePicture)
-          console.log('Profile picture uploaded successfully:', uploadedImage)
-        } catch (uploadError) {
-          console.error('Failed to upload profile picture:', uploadError)
-          // Continue without profile picture rather than failing completely
-        }
-      }
-
       // Generate slug from full name
       const slug = generateSlug(formData.fullName)
       
-      // Hash password for storage (this should ideally be done server-side)
-      const bcrypt = await import('bcryptjs')
-      const passwordHash = await bcrypt.hash(formData.password, 12)
-
-      // Prepare user data for Cosmic using the correct field names from content model
+      // Prepare user data for signup
       const userData = {
-        title: formData.fullName,
-        type: 'user-profiles',
-        status: 'published',
-        slug: slug,
-        metadata: {
-          full_name: formData.fullName,
-          email_address: formData.email, // Using email_address as per content model
-          password_hash: passwordHash,
+        fullName: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        profileData: {
+          title: formData.fullName,
+          slug: slug,
           current_role: formData.currentRole,
           company: formData.company,
           linkedin_url: formData.linkedinUrl || '',
           bio: formData.bio,
           fun_fact: formData.funFact || '',
-          profile_picture: uploadedImage,
           timezone: {
             key: TIMEZONE_OPTIONS.find(tz => tz.value === formData.timezone)?.key || 'OTHER',
             value: formData.timezone
@@ -293,40 +231,25 @@ export default function ProfileSignupForm() {
         }
       }
 
-      console.log('Submitting user data to API:', {
-        title: userData.title,
-        type: userData.type,
-        slug: userData.slug,
-        metadataKeys: Object.keys(userData.metadata)
-      })
-
-      // Submit to Cosmic CMS
-      const response = await fetch('/api/auth/signup-profile', {
+      // Submit to signup API
+      const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
       })
 
       const responseData = await response.json()
-      console.log('API response:', { status: response.status, data: responseData })
 
       if (!response.ok) {
-        throw new Error(responseData.message || `HTTP ${response.status}: Failed to create profile`)
+        throw new Error(responseData.message || `HTTP ${response.status}: Failed to create account`)
       }
-
-      const { profile } = responseData
-      console.log('Profile created successfully:', profile)
       
-      // Redirect to success page or dashboard
-      if (profile?.slug) {
-        router.push(`/profile/${profile.slug}?welcome=true`)
-      } else {
-        router.push('/dashboard?welcome=true')
-      }
+      // Redirect to dashboard
+      router.push('/dashboard?welcome=true')
       
     } catch (error: any) {
       console.error('Signup submission error:', error)
-      setSubmitError(error.message || 'An unexpected error occurred while creating your profile. Please try again.')
+      setSubmitError(error.message || 'An unexpected error occurred while creating your account. Please try again.')
     } finally {
       setIsLoading(false)
     }
