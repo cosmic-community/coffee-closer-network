@@ -7,12 +7,39 @@ interface SignupData {
   email: string
   password: string
   confirmPassword: string
-  currentRole: string
-  company: string
-  seniorityLevel: string
-  industryVertical: string
-  bio: string
-  terms: boolean
+  profileData: {
+    title: string
+    slug: string
+    current_role: string
+    company: string
+    linkedin_url?: string
+    bio: string
+    fun_fact?: string
+    timezone: {
+      key: string
+      value: string
+    }
+    seniority_level: {
+      key: string
+      value: string
+    }
+    sales_focus?: {
+      key: string
+      value: string
+    }
+    industry_vertical?: {
+      key: string
+      value: string
+    }
+    preferred_chat_times: string[]
+    topics_to_discuss: string[]
+    async_communication: boolean
+    profile_complete: boolean
+    account_status: {
+      key: string
+      value: string
+    }
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -22,8 +49,6 @@ export async function POST(request: NextRequest) {
     console.log('Received signup data:', {
       email: signupData.email,
       fullName: signupData.fullName,
-      company: signupData.company,
-      currentRole: signupData.currentRole,
       bucketSlug: process.env.COSMIC_BUCKET_SLUG
     })
 
@@ -36,28 +61,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate required fields with proper error messages
-    const requiredFieldChecks = [
-      { field: signupData.fullName, name: 'Full name' },
-      { field: signupData.email, name: 'Email address' },
-      { field: signupData.password, name: 'Password' },
-      { field: signupData.confirmPassword, name: 'Password confirmation' },
-      { field: signupData.currentRole, name: 'Current role' },
-      { field: signupData.company, name: 'Company' },
-      { field: signupData.seniorityLevel, name: 'Seniority level' },
-      { field: signupData.industryVertical, name: 'Industry vertical' }
-    ]
-
-    const missingFields: string[] = []
-    for (const check of requiredFieldChecks) {
-      if (!check.field || (typeof check.field === 'string' && check.field.trim().length === 0)) {
-        missingFields.push(check.name)
-      }
+    // Validate required fields
+    if (!signupData.fullName?.trim()) {
+      return NextResponse.json(
+        { message: 'Full name is required' },
+        { status: 400 }
+      )
     }
 
-    if (missingFields.length > 0) {
+    if (!signupData.email?.trim()) {
       return NextResponse.json(
-        { message: `Missing required fields: ${missingFields.join(', ')}` },
+        { message: 'Email address is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!signupData.password?.trim()) {
+      return NextResponse.json(
+        { message: 'Password is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!signupData.profileData?.current_role?.trim()) {
+      return NextResponse.json(
+        { message: 'Current role is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!signupData.profileData?.company?.trim()) {
+      return NextResponse.json(
+        { message: 'Company is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!signupData.profileData?.bio?.trim()) {
+      return NextResponse.json(
+        { message: 'Bio is required' },
         { status: 400 }
       )
     }
@@ -87,14 +129,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate terms acceptance
-    if (!signupData.terms) {
-      return NextResponse.json(
-        { message: 'You must accept the terms and conditions' },
-        { status: 400 }
-      )
-    }
-
     // Check if user already exists
     try {
       const existingUser = await cosmic.objects.find({
@@ -120,67 +154,36 @@ export async function POST(request: NextRequest) {
     const saltRounds = 12
     const passwordHash = await bcrypt.hash(signupData.password, saltRounds)
 
-    // Generate slug from full name
-    const slug = signupData.fullName
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .trim()
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-
-    // Map seniority level to proper format
-    const seniorityMapping: Record<string, { key: string; value: string }> = {
-      'SDR': { key: 'SDR', value: 'SDR (Sales Development Rep)' },
-      'AE': { key: 'AE', value: 'Account Executive' },
-      'SR_AE': { key: 'SR_AE', value: 'Senior Account Executive' },
-      'MANAGER': { key: 'MANAGER', value: 'Sales Manager' },
-      'VP': { key: 'VP', value: 'VP of Sales' }
-    }
-
-    // Map industry vertical to proper format
-    const industryMapping: Record<string, { key: string; value: string }> = {
-      'SAAS': { key: 'SAAS', value: 'SaaS' },
-      'FINTECH': { key: 'FINTECH', value: 'Fintech' },
-      'HEALTHCARE': { key: 'HEALTHCARE', value: 'Healthcare' },
-      'EDTECH': { key: 'EDTECH', value: 'EdTech' },
-      'ECOMMERCE': { key: 'ECOMMERCE', value: 'E-commerce' },
-      'MARTECH': { key: 'MARTECH', value: 'MarTech' },
-      'CYBERSECURITY': { key: 'CYBERSECURITY', value: 'Cybersecurity' },
-      'OTHER': { key: 'OTHER', value: 'Other' }
-    }
-
     // Create user profile in Cosmic with properly mapped fields
     const userData = {
       title: signupData.fullName,
       type: 'user-profiles',
       status: 'published',
-      slug: slug,
+      slug: signupData.profileData.slug,
       metadata: {
         full_name: signupData.fullName,
         email_address: signupData.email,
         password_hash: passwordHash,
-        current_role: signupData.currentRole,
-        company: signupData.company,
-        seniority_level: seniorityMapping[signupData.seniorityLevel] || {
-          key: 'OTHER',
-          value: signupData.seniorityLevel
-        },
-        industry_vertical: industryMapping[signupData.industryVertical] || {
-          key: 'OTHER', 
-          value: signupData.industryVertical
-        },
-        bio: signupData.bio || '',
-        profile_complete: false,
-        account_status: {
-          key: 'ACTIVE',
-          value: 'Active'
-        }
+        current_role: signupData.profileData.current_role,
+        company: signupData.profileData.company,
+        linkedin_url: signupData.profileData.linkedin_url || '',
+        bio: signupData.profileData.bio,
+        fun_fact: signupData.profileData.fun_fact || '',
+        timezone: signupData.profileData.timezone,
+        seniority_level: signupData.profileData.seniority_level,
+        sales_focus: signupData.profileData.sales_focus,
+        industry_vertical: signupData.profileData.industry_vertical,
+        preferred_chat_times: signupData.profileData.preferred_chat_times,
+        topics_to_discuss: signupData.profileData.topics_to_discuss,
+        async_communication: signupData.profileData.async_communication,
+        profile_complete: signupData.profileData.profile_complete,
+        account_status: signupData.profileData.account_status
       }
     }
 
     console.log('Creating user profile in coffee-closers-production bucket:', { 
       email: signupData.email, 
-      slug,
+      slug: signupData.profileData.slug,
       bucketSlug: process.env.COSMIC_BUCKET_SLUG
     })
 

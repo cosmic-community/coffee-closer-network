@@ -65,14 +65,6 @@ export function validateSignupForm(formData: any, step: number): FormErrors {
       if (!formData.seniorityLevel) {
         errors.seniorityLevel = 'Seniority level is required'
       }
-
-      if (!formData.salesFocus) {
-        errors.salesFocus = 'Sales focus is required'
-      }
-
-      if (!formData.industryVertical) {
-        errors.industryVertical = 'Industry vertical is required'
-      }
       break
 
     case 4:

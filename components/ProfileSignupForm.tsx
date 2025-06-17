@@ -191,11 +191,12 @@ export default function ProfileSignupForm() {
       // Generate slug from full name
       const slug = generateSlug(formData.fullName)
       
-      // Prepare user data for signup
+      // Prepare user data for signup with correct structure
       const userData = {
         fullName: formData.fullName,
         email: formData.email,
         password: formData.password,
+        confirmPassword: formData.confirmPassword,
         profileData: {
           title: formData.fullName,
           slug: slug,
@@ -231,6 +232,12 @@ export default function ProfileSignupForm() {
         }
       }
 
+      console.log('Submitting signup data:', {
+        email: userData.email,
+        fullName: userData.fullName,
+        slug: userData.profileData.slug
+      })
+
       // Submit to signup API
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
@@ -243,6 +250,8 @@ export default function ProfileSignupForm() {
       if (!response.ok) {
         throw new Error(responseData.message || `HTTP ${response.status}: Failed to create account`)
       }
+      
+      console.log('Signup successful, redirecting to dashboard')
       
       // Redirect to dashboard
       router.push('/dashboard?welcome=true')
