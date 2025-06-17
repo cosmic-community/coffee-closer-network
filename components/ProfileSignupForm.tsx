@@ -67,9 +67,9 @@ const SENIORITY_OPTIONS = [
 const SALES_FOCUS_OPTIONS = [
   { key: 'OUTBOUND', value: 'Outbound Sales' },
   { key: 'INBOUND', value: 'Inbound Sales' },
+  { key: 'SMB', value: 'SMB' },
   { key: 'MID_MARKET', value: 'Mid-Market' },
   { key: 'ENTERPRISE', value: 'Enterprise' },
-  { key: 'SMB', value: 'SMB' },
   { key: 'CHANNEL', value: 'Channel Sales' },
   { key: 'OTHER', value: 'Other' }
 ]
@@ -243,8 +243,14 @@ export default function ProfileSignupForm() {
         }
       }
 
-      // Prepare user data for Cosmic
+      // Generate slug from full name
       const slug = generateSlug(formData.fullName)
+      
+      // Hash password for storage (this should ideally be done server-side)
+      const bcrypt = await import('bcryptjs')
+      const passwordHash = await bcrypt.hash(formData.password, 12)
+
+      // Prepare user data for Cosmic using the correct field names from content model
       const userData = {
         title: formData.fullName,
         type: 'user-profiles',
@@ -252,7 +258,8 @@ export default function ProfileSignupForm() {
         slug: slug,
         metadata: {
           full_name: formData.fullName,
-          email: formData.email,
+          email_address: formData.email, // Using email_address as per content model
+          password_hash: passwordHash,
           current_role: formData.currentRole,
           company: formData.company,
           linkedin_url: formData.linkedinUrl || '',
@@ -267,18 +274,22 @@ export default function ProfileSignupForm() {
             key: SENIORITY_OPTIONS.find(sl => sl.value === formData.seniorityLevel)?.key || 'OTHER',
             value: formData.seniorityLevel
           },
-          sales_focus: {
+          sales_focus: formData.salesFocus ? {
             key: SALES_FOCUS_OPTIONS.find(sf => sf.value === formData.salesFocus)?.key || 'OTHER',
             value: formData.salesFocus
-          },
-          industry_vertical: {
+          } : undefined,
+          industry_vertical: formData.industryVertical ? {
             key: INDUSTRY_OPTIONS.find(iv => iv.value === formData.industryVertical)?.key || 'OTHER',
             value: formData.industryVertical
-          },
+          } : undefined,
           preferred_chat_times: formData.preferredChatTimes,
           topics_to_discuss: formData.topicsToDiscuss,
           async_communication: formData.asyncCommunication,
-          profile_complete: true
+          profile_complete: true,
+          account_status: {
+            key: 'ACTIVE',
+            value: 'Active'
+          }
         }
       }
 
@@ -548,46 +559,38 @@ export default function ProfileSignupForm() {
 
             <div>
               <label htmlFor="salesFocus" className="block text-sm font-medium text-neutral-700 mb-2">
-                Sales Focus *
+                Sales Focus
               </label>
               <select
                 id="salesFocus"
                 name="salesFocus"
-                required
                 value={formData.salesFocus}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500 ${
-                  errors.salesFocus ? 'border-red-300' : 'border-neutral-300'
-                }`}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
               >
                 <option value="">Select your sales focus</option>
                 {SALES_FOCUS_OPTIONS.map(option => (
                   <option key={option.key} value={option.value}>{option.value}</option>
                 ))}
               </select>
-              {errors.salesFocus && <p className="text-red-600 text-sm mt-1">{errors.salesFocus}</p>}
             </div>
 
             <div>
               <label htmlFor="industryVertical" className="block text-sm font-medium text-neutral-700 mb-2">
-                Industry Vertical *
+                Industry Vertical
               </label>
               <select
                 id="industryVertical"
                 name="industryVertical"
-                required
                 value={formData.industryVertical}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500 ${
-                  errors.industryVertical ? 'border-red-300' : 'border-neutral-300'
-                }`}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
               >
                 <option value="">Select your industry</option>
                 {INDUSTRY_OPTIONS.map(option => (
                   <option key={option.key} value={option.value}>{option.value}</option>
                 ))}
               </select>
-              {errors.industryVertical && <p className="text-red-600 text-sm mt-1">{errors.industryVertical}</p>}
             </div>
           </div>
         )
