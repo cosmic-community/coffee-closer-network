@@ -194,5 +194,6 @@ export function generateIcebreakerQuestion(): string {
     "What's one sales trend you're excited about?"
   ]
   
-  return questions[Math.floor(Math.random() * questions.length)]
+  const randomIndex = Math.floor(Math.random() * questions.length)
+  return questions[randomIndex] || questions[0]
 }
