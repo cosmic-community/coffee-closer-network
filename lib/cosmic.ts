@@ -30,9 +30,12 @@ if (!process.env.COSMIC_WRITE_KEY) {
   throw new Error('COSMIC_WRITE_KEY environment variable is required')
 }
 
-// Updated to use the correct bucket ID as slug
-if (process.env.COSMIC_BUCKET_SLUG !== '68507c30d8593624e0a9fbbb') {
-  console.warn(`WARNING: Expected bucket slug "68507c30d8593624e0a9fbbb" but got "${process.env.COSMIC_BUCKET_SLUG}"`)
+// The correct bucket ID based on the API responses
+const EXPECTED_BUCKET_ID = '68507c30d8593624e0a9fbbb'
+
+if (process.env.COSMIC_BUCKET_SLUG !== EXPECTED_BUCKET_ID) {
+  console.warn(`WARNING: Expected bucket ID "${EXPECTED_BUCKET_ID}" but got "${process.env.COSMIC_BUCKET_SLUG}"`)
+  console.warn('Make sure your COSMIC_BUCKET_SLUG uses the bucket ID, not the human-readable slug')
 }
 
 export const cosmic = createBucketClient({
@@ -114,27 +117,42 @@ export async function getUserProfileByEmail(email: string): Promise<UserProfile 
   }
 }
 
-// Create user profile with detailed error logging
+// Create user profile with detailed error logging - updated for correct schema
 export async function createUserProfile(userData: {
   title: string;
   slug: string;
   metadata: {
+    full_name: string;
     email_address: string;
-    password_hash: string;
-    first_name: string;
-    last_name: string;
-    location: string;
-    profession: string;
-    experience_level: string;
-    bio: string;
+    current_role: string;
+    company: string;
+    timezone?: {
+      key: string;
+      value: string;
+    };
+    seniority_level?: {
+      key: string;
+      value: string;
+    };
+    sales_focus?: {
+      key: string;
+      value: string;
+    };
+    industry_vertical?: {
+      key: string;
+      value: string;
+    };
+    preferred_chat_times?: string[];
+    topics_to_discuss?: string[];
+    async_communication?: boolean;
+    profile_complete?: boolean;
+    account_status?: {
+      key: string;
+      value: string;
+    };
+    bio?: string;
+    fun_fact?: string;
     linkedin_url?: string;
-    github_url?: string;
-    website_url?: string;
-    interests: string[];
-    availability: string;
-    profile_visibility: string;
-    email_notifications: boolean;
-    account_status: string;
   };
 }): Promise<UserProfile> {
   try {
@@ -143,6 +161,7 @@ export async function createUserProfile(userData: {
       type: 'user-profiles',
       title: userData.title,
       slug: userData.slug,
+      status: 'published',
       metadata: userData.metadata
     });
     console.log('User profile created successfully:', response.object.id);
