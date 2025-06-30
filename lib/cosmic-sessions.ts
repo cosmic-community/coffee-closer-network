@@ -132,7 +132,10 @@ export async function getUpcomingSessions(userId: string): Promise<CoffeeChatSes
     const now = new Date()
     
     return allSessions.filter((session: CoffeeChatSession) => {
-      const sessionDate = new Date(session.metadata?.scheduled_datetime || '')
+      const sessionDatetime = session.metadata?.scheduled_datetime
+      if (!sessionDatetime) return false
+      
+      const sessionDate = new Date(sessionDatetime)
       return sessionDate > now && session.metadata?.status?.key === 'SCHEDULED'
     }).sort((a, b) => {
       const dateA = new Date(a.metadata?.scheduled_datetime || '')
@@ -151,7 +154,10 @@ export async function getPastSessions(userId: string): Promise<CoffeeChatSession
     const now = new Date()
     
     return allSessions.filter((session: CoffeeChatSession) => {
-      const sessionDate = new Date(session.metadata?.scheduled_datetime || '')
+      const sessionDatetime = session.metadata?.scheduled_datetime
+      if (!sessionDatetime) return false
+      
+      const sessionDate = new Date(sessionDatetime)
       return sessionDate <= now || session.metadata?.status?.key === 'COMPLETED'
     }).sort((a, b) => {
       const dateA = new Date(a.metadata?.scheduled_datetime || '')
