@@ -201,5 +201,6 @@ export function generateIcebreakerQuestion(): string {
   ]
   
   const randomIndex = Math.floor(Math.random() * questions.length)
-  return questions[randomIndex] || questions[0]
+  // Ensure we always return a string by providing a guaranteed fallback
+  return questions[randomIndex] ?? "What's the most interesting industry you've sold into?"
 }
