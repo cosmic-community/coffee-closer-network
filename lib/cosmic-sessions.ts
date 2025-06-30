@@ -201,5 +201,5 @@ export function generateIcebreakerQuestion(): string {
   ]
   
   const randomIndex = Math.floor(Math.random() * questions.length)
-  return questions[randomIndex] || questions[0]
+  return questions[randomIndex] ?? questions[0]
 }
