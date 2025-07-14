@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createBucketClient } from '@cosmicjs/sdk'
 import { createSession, createSessionResponse } from '@/lib/session'
+import { getUserProfileByEmail } from '@/lib/cosmic'
 import { verifyPassword } from '@/lib/password-utils'
 import { validateLoginData } from '@/lib/validation'
 
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    console.log('Login attempt for:', body.email, 'using bucket:', process.env.COSMIC_BUCKET_SLUG)
+    console.log('Login attempt for:', body.email)
     
     // Validate input data
     const validation = validateLoginData(body)
@@ -36,92 +36,50 @@ export async function POST(request: NextRequest) {
       }, token)
     }
 
-    // Check environment variables
-    const bucketSlug = process.env.COSMIC_BUCKET_SLUG
-    const readKey = process.env.COSMIC_READ_KEY
+    // Find user profile by email
+    const userProfile = await getUserProfileByEmail(body.email.trim().toLowerCase())
     
-    if (!bucketSlug || !readKey) {
-      console.error('Missing environment variables')
+    if (!userProfile) {
       return NextResponse.json(
-        { error: 'Server configuration error. Please contact support.' },
-        { status: 500 }
+        { error: 'Invalid email or password' },
+        { status: 401 }
       )
     }
 
-    // Validate that we're using the correct bucket
-    if (bucketSlug !== 'coffee-closers-production') {
-      console.error('Incorrect bucket slug configured:', bucketSlug)
+    // Check if user has password hash
+    const storedHash = userProfile.metadata?.password_hash
+    if (!storedHash) {
       return NextResponse.json(
-        { error: 'Server configuration error. Please contact support.' },
-        { status: 500 }
+        { error: 'Invalid email or password' },
+        { status: 401 }
       )
     }
 
-    // Create Cosmic client (read-only for login)
-    const cosmic = createBucketClient({
-      bucketSlug,
-      readKey,
-    })
-
-    // Find user by email
-    try {
-      const response = await cosmic.objects.find({
-        type: 'user-profiles',
-        'metadata.email': body.email.trim().toLowerCase()
-      }).props(['id', 'title', 'metadata']).depth(1)
-
-      if (!response.objects || response.objects.length === 0) {
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        )
-      }
-
-      const userObject = response.objects[0]
-      const storedHash = userObject.metadata?.password_hash
-
-      if (!storedHash) {
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        )
-      }
-
-      // Verify password
-      const isValidPassword = await verifyPassword(body.password, storedHash)
-      
-      if (!isValidPassword) {
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        )
-      }
-
-      // Create session
-      const sessionUser = {
-        id: userObject.id,
-        email: body.email.trim().toLowerCase(),
-        fullName: userObject.metadata?.full_name || userObject.title,
-        isAdmin: false
-      }
-
-      const token = await createSession(sessionUser)
-      return createSessionResponse({
-        success: true,
-        message: 'Login successful',
-        user: sessionUser
-      }, token)
-
-    } catch (error: any) {
-      if (error.status === 404) {
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        )
-      }
-      throw error
-    }
+    // Verify password
+    const isValidPassword = await verifyPassword(body.password, storedHash)
     
+    if (!isValidPassword) {
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
+
+    // Create session
+    const sessionUser = {
+      id: userProfile.id,
+      email: userProfile.metadata?.email_address || body.email.trim().toLowerCase(),
+      fullName: userProfile.metadata?.full_name || userProfile.title,
+      isAdmin: false
+    }
+
+    const token = await createSession(sessionUser)
+    return createSessionResponse({
+      success: true,
+      message: 'Login successful',
+      user: sessionUser
+    }, token)
+
   } catch (error: any) {
     console.error('Login error:', error)
     return NextResponse.json(

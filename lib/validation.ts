@@ -41,50 +41,15 @@ export function validateFullName(fullName: string): ValidationResult {
   }
 }
 
-export function validateCurrentRole(role: string): ValidationResult {
+export function validatePassword(password: string): ValidationResult {
   const errors: string[] = []
   
-  if (!role || role.trim().length === 0) {
-    errors.push('Current role is required')
+  if (!password || password.trim().length === 0) {
+    errors.push('Password is required')
   } else {
-    if (role.trim().length < 2) {
-      errors.push('Current role must be at least 2 characters long')
+    if (password.length < 8) {
+      errors.push('Password must be at least 8 characters long')
     }
-    if (role.trim().length > 100) {
-      errors.push('Current role must be less than 100 characters')
-    }
-  }
-  
-  return {
-    isValid: errors.length === 0,
-    errors
-  }
-}
-
-export function validateSeniorityLevel(level: string): ValidationResult {
-  const errors: string[] = []
-  const validLevels = ['SDR', 'BDR', 'AE', 'SR_AE', 'AM', 'CSM', 'MANAGER', 'DIRECTOR', 'VP']
-  
-  if (!level || level.trim().length === 0) {
-    errors.push('Seniority level is required')
-  } else if (!validLevels.includes(level)) {
-    errors.push('Please select a valid seniority level')
-  }
-  
-  return {
-    isValid: errors.length === 0,
-    errors
-  }
-}
-
-export function validateIndustryVertical(industry: string): ValidationResult {
-  const errors: string[] = []
-  const validIndustries = ['SAAS', 'FINTECH', 'HEALTHCARE', 'EDTECH', 'ECOMMERCE', 'MARTECH', 'CYBERSECURITY', 'OTHER']
-  
-  if (!industry || industry.trim().length === 0) {
-    errors.push('Industry vertical is required')
-  } else if (!validIndustries.includes(industry)) {
-    errors.push('Please select a valid industry vertical')
   }
   
   return {
@@ -99,8 +64,10 @@ export function validateSignupData(data: {
   password: string
   confirmPassword: string
   currentRole: string
+  company: string
   seniorityLevel: string
   industryVertical: string
+  bio: string
   terms: boolean
 }): ValidationResult {
   const errors: string[] = []
@@ -108,24 +75,36 @@ export function validateSignupData(data: {
   // Validate each field
   const fullNameValidation = validateFullName(data.fullName)
   const emailValidation = validateEmail(data.email)
-  const roleValidation = validateCurrentRole(data.currentRole)
-  const seniorityValidation = validateSeniorityLevel(data.seniorityLevel)
-  const industryValidation = validateIndustryVertical(data.industryVertical)
+  const passwordValidation = validatePassword(data.password)
   
   errors.push(...fullNameValidation.errors)
   errors.push(...emailValidation.errors)
-  errors.push(...roleValidation.errors)
-  errors.push(...seniorityValidation.errors)
-  errors.push(...industryValidation.errors)
+  errors.push(...passwordValidation.errors)
   
-  // Password validation
-  if (!data.password || data.password.trim().length === 0) {
-    errors.push('Password is required')
-  } else if (data.password.length < 8) {
-    errors.push('Password must be at least 8 characters long')
+  // Additional validations
+  if (!data.currentRole || data.currentRole.trim().length === 0) {
+    errors.push('Current role is required')
   }
   
-  // Confirm password validation
+  if (!data.company || data.company.trim().length === 0) {
+    errors.push('Company is required')
+  }
+  
+  if (!data.seniorityLevel || data.seniorityLevel.trim().length === 0) {
+    errors.push('Seniority level is required')
+  }
+  
+  if (!data.industryVertical || data.industryVertical.trim().length === 0) {
+    errors.push('Industry vertical is required')
+  }
+  
+  if (!data.bio || data.bio.trim().length === 0) {
+    errors.push('Bio is required')
+  } else if (data.bio.length > 500) {
+    errors.push('Bio must be 500 characters or less')
+  }
+  
+  // Password confirmation
   if (data.password !== data.confirmPassword) {
     errors.push('Passwords do not match')
   }
@@ -148,11 +127,10 @@ export function validateLoginData(data: {
   const errors: string[] = []
   
   const emailValidation = validateEmail(data.email)
-  errors.push(...emailValidation.errors)
+  const passwordValidation = validatePassword(data.password)
   
-  if (!data.password || data.password.trim().length === 0) {
-    errors.push('Password is required')
-  }
+  errors.push(...emailValidation.errors)
+  errors.push(...passwordValidation.errors)
   
   return {
     isValid: errors.length === 0,

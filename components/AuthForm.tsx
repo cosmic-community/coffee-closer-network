@@ -34,16 +34,6 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (mode === 'signup') {
-      if (formData.password !== formData.confirmPassword) {
-        throw new Error('Passwords do not match')
-      }
-      if (!formData.terms) {
-        throw new Error('Please accept the terms and conditions')
-      }
-    }
-    
     await onSubmit(formData)
   }
 
@@ -120,7 +110,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
             onChange={handleChange}
             className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
             placeholder={isSignUp ? "Create a password (8+ characters)" : "Enter your password"}
-            minLength={isSignUp ? 8 : undefined}
+            minLength={8}
           />
           {isSignUp && (
             <p className="text-sm text-neutral-500 mt-1">Must be at least 8 characters</p>
@@ -196,6 +186,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 <option value="SR_AE">Senior Account Executive</option>
                 <option value="MANAGER">Sales Manager</option>
                 <option value="VP">VP of Sales</option>
+                <option value="OTHER">Other</option>
               </select>
             </div>
 
@@ -215,10 +206,10 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 <option value="SAAS">SaaS</option>
                 <option value="FINTECH">Fintech</option>
                 <option value="HEALTHCARE">Healthcare</option>
-                <option value="EDTECH">EdTech</option>
-                <option value="ECOMMERCE">E-commerce</option>
-                <option value="MARTECH">MarTech</option>
-                <option value="CYBERSECURITY">Cybersecurity</option>
+                <option value="MANUFACTURING">Manufacturing</option>
+                <option value="RETAIL">Retail</option>
+                <option value="REAL_ESTATE">Real Estate</option>
+                <option value="TECHNOLOGY">Technology</option>
                 <option value="OTHER">Other</option>
               </select>
             </div>
@@ -238,7 +229,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 placeholder="Tell us about yourself and what you'd like to discuss..."
                 maxLength={500}
               />
-              <p className="text-sm text-neutral-500 mt-1">Max 500 characters</p>
+              <p className="text-sm text-neutral-500 mt-1">{formData.bio.length}/500 characters</p>
             </div>
 
             <div className="flex items-center">
@@ -289,7 +280,7 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-coffee-600 text-white py-2 px-4 rounded-md hover:bg-coffee-700 focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading 
             ? (isSignUp ? 'Creating Account...' : 'Signing in...') 
