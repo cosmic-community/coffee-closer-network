@@ -1,86 +1,58 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getCoffeeChatSessions } from '@/lib/cosmic'
-import { getSession } from '@/lib/session'
-import type { CoffeeChatSession } from '@/types'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSession()
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      )
-    }
-
     // Get all coffee chat sessions
-    const allSessions = await getCoffeeChatSessions()
+    const sessions = await getCoffeeChatSessions()
     
-    // Filter sessions for the current user
-    const userSessions = allSessions.filter((session: CoffeeChatSession) => {
-      return session.metadata.user_1?.id === user.id || 
-             session.metadata.user_2?.id === user.id
+    // Transform the sessions data to include user information
+    const transformedSessions = sessions.map((session: any) => {
+      const user1 = session.metadata?.user_1
+      const user2 = session.metadata?.user_2
+      
+      return {
+        id: session.id,
+        title: session.title,
+        slug: session.slug,
+        scheduled_datetime: session.metadata?.scheduled_datetime,
+        status: session.metadata?.status,
+        meeting_link: session.metadata?.meeting_link,
+        icebreaker_question: session.metadata?.icebreaker_question,
+        user_1: user1 ? {
+          id: user1.id,
+          name: user1.metadata?.full_name || user1.title,
+          role: user1.metadata?.current_role,
+          company: user1.metadata?.company,
+          profile_picture: user1.metadata?.profile_picture?.imgix_url
+        } : null,
+        user_2: user2 ? {
+          id: user2.id,
+          name: user2.metadata?.full_name || user2.title,
+          role: user2.metadata?.current_role,
+          company: user2.metadata?.company,
+          profile_picture: user2.metadata?.profile_picture?.imgix_url
+        } : null,
+        created_at: session.created_at,
+        modified_at: session.modified_at
+      }
     })
-
+    
     // Sort by scheduled datetime (most recent first)
-    userSessions.sort((a: CoffeeChatSession, b: CoffeeChatSession) => {
-      const dateA = new Date(a.metadata.scheduled_datetime || '')
-      const dateB = new Date(b.metadata.scheduled_datetime || '')
-      return dateB.getTime() - dateA.getTime()
+    const sortedSessions = transformedSessions.sort((a: any, b: any) => {
+      const dateA = new Date(a.scheduled_datetime || 0).getTime()
+      const dateB = new Date(b.scheduled_datetime || 0).getTime()
+      return dateB - dateA
     })
-
+    
     return NextResponse.json({
-      success: true,
-      sessions: userSessions,
-      total: userSessions.length
+      sessions: sortedSessions,
+      total: sortedSessions.length
     })
-
-  } catch (error: any) {
-    console.error('Error fetching user sessions:', error)
+  } catch (error) {
+    console.error('Error fetching coffee chat sessions:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch sessions' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const user = await getSession()
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      )
-    }
-
-    const sessionData = await request.json()
-    
-    // Validate required fields
-    if (!sessionData.participant_id || !sessionData.scheduled_datetime) {
-      return NextResponse.json(
-        { error: 'Participant ID and scheduled datetime are required' },
-        { status: 400 }
-      )
-    }
-
-    // TODO: Implement session creation logic
-    // This would typically involve:
-    // 1. Creating a new coffee-chat-session object in Cosmic
-    // 2. Generating meeting link
-    // 3. Sending notifications to both participants
-    
-    return NextResponse.json(
-      { error: 'Session creation not yet implemented' },
-      { status: 501 }
-    )
-
-  } catch (error: any) {
-    console.error('Error creating session:', error)
-    return NextResponse.json(
-      { error: 'Failed to create session' },
+      { error: 'Failed to fetch coffee chat sessions' },
       { status: 500 }
     )
   }
