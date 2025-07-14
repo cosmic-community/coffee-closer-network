@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Sort by scheduled datetime (most recent first)
-    userSessions.sort((a, b) => {
+    userSessions.sort((a: CoffeeChatSession, b: CoffeeChatSession) => {
       const dateA = new Date(a.metadata.scheduled_datetime || '')
       const dateB = new Date(b.metadata.scheduled_datetime || '')
       return dateB.getTime() - dateA.getTime()

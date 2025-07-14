@@ -76,6 +76,22 @@ export async function getUserProfileById(id: string) {
   }
 }
 
+// Helper function to get all coffee chat sessions
+export async function getCoffeeChatSessions() {
+  try {
+    const response = await cosmic.objects.find({
+      type: 'coffee-chat-sessions'
+    }).props(['id', 'title', 'slug', 'metadata', 'created_at', 'modified_at']).depth(1)
+    
+    return response.objects || []
+  } catch (error: any) {
+    if (error.status === 404) {
+      return []
+    }
+    throw error
+  }
+}
+
 // Helper function to create user profile
 export async function createUserProfile(data: {
   title: string
