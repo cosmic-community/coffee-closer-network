@@ -1,4 +1,4 @@
-import { cosmic } from '@/lib/cosmic'
+import { cosmicWrite } from '@/lib/cosmic'
 import type { CoffeeChatSession, UserProfile } from '@/types'
 
 export interface SessionData {
@@ -13,7 +13,7 @@ export interface SessionData {
 
 export async function getUserSessions(userId: string): Promise<CoffeeChatSession[]> {
   try {
-    const response = await cosmic.objects
+    const response = await cosmicWrite.objects
       .find({ type: 'coffee-chat-sessions' })
       .props(['id', 'title', 'slug', 'metadata'])
       .depth(1)
@@ -40,7 +40,7 @@ export async function getUserSessions(userId: string): Promise<CoffeeChatSession
 
 export async function getSessionById(sessionId: string): Promise<CoffeeChatSession | null> {
   try {
-    const response = await cosmic.objects.findOne({
+    const response = await cosmicWrite.objects.findOne({
       type: 'coffee-chat-sessions',
       id: sessionId
     }).depth(1)
@@ -60,7 +60,7 @@ export async function createSession(sessionData: SessionData): Promise<CoffeeCha
     // Generate a title for the session
     const title = `Coffee Chat Session - ${new Date(sessionData.scheduled_datetime).toLocaleDateString()}`
     
-    const response = await cosmic.objects.insertOne({
+    const response = await cosmicWrite.objects.insertOne({
       title,
       type: 'coffee-chat-sessions',
       status: 'published',
@@ -106,7 +106,7 @@ export async function updateSession(sessionId: string, updates: Partial<SessionD
       }
     }
 
-    const response = await cosmic.objects.updateOne(sessionId, {
+    const response = await cosmicWrite.objects.updateOne(sessionId, {
       metadata: updatedMetadata
     })
 
@@ -119,7 +119,7 @@ export async function updateSession(sessionId: string, updates: Partial<SessionD
 
 export async function deleteSession(sessionId: string): Promise<void> {
   try {
-    await cosmic.objects.deleteOne(sessionId)
+    await cosmicWrite.objects.deleteOne(sessionId)
   } catch (error) {
     console.error('Error deleting session:', error)
     throw new Error('Failed to delete session')

@@ -16,16 +16,14 @@ if (!readKey) {
 // Read-only client for public queries
 export const cosmic = createBucketClient({
   bucketSlug,
-  readKey,
-  apiEnvironment: "staging"
+  readKey
 })
 
 // Write client for authenticated operations (server-side only)
 export const cosmicWrite = createBucketClient({
   bucketSlug,
   readKey,
-  writeKey: writeKey || '',
-  apiEnvironment: "staging"
+  writeKey: writeKey || ''
 })
 
 // Helper function to get all user profiles

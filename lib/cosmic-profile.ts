@@ -1,4 +1,4 @@
-import { cosmic } from '@/lib/cosmic'
+import { cosmicWrite } from '@/lib/cosmic'
 import type { UserProfile } from '@/types'
 
 export interface ProfileData {
@@ -38,7 +38,7 @@ export interface ProfileData {
 
 export async function getUserProfileById(userId: string): Promise<UserProfile | null> {
   try {
-    const response = await cosmic.objects.find({
+    const response = await cosmicWrite.objects.find({
       type: 'user-profiles'
     }).props(['id', 'title', 'slug', 'metadata']).depth(1)
 
@@ -70,7 +70,7 @@ export async function updateUserProfile(userId: string, profileData: ProfileData
     }
 
     // Update the profile
-    const response = await cosmic.objects.updateOne(existingProfile.id, {
+    const response = await cosmicWrite.objects.updateOne(existingProfile.id, {
       metadata: {
         ...existingProfile.metadata,
         ...profileData
@@ -89,7 +89,7 @@ export async function createUserProfile(profileData: ProfileData & {
   slug: string 
 }): Promise<UserProfile> {
   try {
-    const response = await cosmic.objects.insertOne({
+    const response = await cosmicWrite.objects.insertOne({
       title: profileData.title,
       type: 'user-profiles',
       status: 'published',
