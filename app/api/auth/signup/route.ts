@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createUserProfile, checkUserExists } from '@/lib/cosmic'
+import { cosmicAuth } from '@/lib/cosmic-auth'
 import { hashPassword } from '@/lib/password-utils'
 import { createSession, createSessionResponse } from '@/lib/session'
 import { validateSignupData } from '@/lib/validation'
@@ -23,25 +23,47 @@ export async function POST(request: NextRequest) {
     
     console.log('Received signup data:', {
       email: signupData.email,
-      fullName: signupData.fullName
+      fullName: signupData.fullName,
+      currentRole: signupData.currentRole,
+      company: signupData.company,
+      seniorityLevel: signupData.seniorityLevel,
+      industryVertical: signupData.industryVertical,
+      bioLength: signupData.bio?.length || 0,
+      terms: signupData.terms
     })
 
     // Validate required fields
     const validation = validateSignupData(signupData)
     if (!validation.isValid) {
+      console.log('Validation errors:', validation.errors)
       return NextResponse.json(
         { error: validation.errors[0] },
         { status: 400 }
       )
     }
 
-    // Check if user already exists
-    const userExists = await checkUserExists(signupData.email)
-    if (userExists) {
-      return NextResponse.json(
-        { error: 'A user with this email already exists' },
-        { status: 409 }
-      )
+    // Check if user already exists by searching user-profiles
+    try {
+      const existingUser = await cosmicAuth.objects.find({
+        type: 'user-profiles',
+        'metadata.email_address': signupData.email.trim().toLowerCase()
+      }).props(['id', 'slug', 'metadata'])
+
+      if (existingUser.objects && existingUser.objects.length > 0) {
+        return NextResponse.json(
+          { error: 'A user with this email already exists' },
+          { status: 409 }
+        )
+      }
+    } catch (error: any) {
+      // If 404, no user exists (this is expected for new users)
+      if (error.status !== 404) {
+        console.error('Error checking existing user:', error)
+        return NextResponse.json(
+          { error: 'Error checking user existence' },
+          { status: 500 }
+        )
+      }
     }
 
     // Hash password
@@ -55,17 +77,18 @@ export async function POST(request: NextRequest) {
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
 
-    // Create user profile
-    const userData = {
+    // Create user profile object
+    const userProfileData = {
       title: signupData.fullName,
       slug: slug,
+      type: 'user-profiles',
+      status: 'published',
       metadata: {
         full_name: signupData.fullName,
         email_address: signupData.email.trim().toLowerCase(),
-        password_hash: passwordHash,
         current_role: signupData.currentRole,
         company: signupData.company,
-        bio: signupData.bio,
+        bio: signupData.bio || '',
         timezone: {
           key: 'EST',
           value: 'Eastern Time (EST/EDT)'
@@ -89,17 +112,52 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const response = await createUserProfile(userData)
+    // Create user account object
+    const userAccountData = {
+      title: signupData.email.trim().toLowerCase(),
+      slug: signupData.email.trim().toLowerCase().replace(/[@.]/g, ''),
+      type: 'user-accounts',
+      status: 'published',
+      metadata: {
+        email: signupData.email.trim().toLowerCase(),
+        password_hash: passwordHash,
+        email_verified: false,
+        created_at: new Date().toISOString().split('T')[0],
+        is_active: true,
+        role: {
+          key: 'user',
+          value: 'User'
+        },
+        user_status: {
+          key: 'ACTIVE',
+          value: 'Active'
+        },
+        failed_login_attempts: 0,
+        two_factor_enabled: false,
+        privacy_settings: {
+          profile_visible: true,
+          allow_direct_contact: true,
+          show_in_directory: true,
+          data_sharing_consent: false
+        }
+      }
+    }
+
+    console.log('Creating user profile...')
+    const profileResponse = await cosmicAuth.objects.insertOne(userProfileData)
     
-    console.log('Successfully created profile:', {
-      id: response.object?.id,
-      slug: response.object?.slug,
+    console.log('Creating user account...')
+    const accountResponse = await cosmicAuth.objects.insertOne(userAccountData)
+    
+    console.log('Successfully created user:', {
+      profileId: profileResponse.object?.id,
+      accountId: accountResponse.object?.id,
       email: signupData.email
     })
 
     // Create session
     const sessionUser = {
-      id: response.object?.id || '',
+      id: profileResponse.object?.id || '',
       email: signupData.email.trim().toLowerCase(),
       fullName: signupData.fullName,
       isAdmin: false
@@ -115,6 +173,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Signup error:', error)
     
+    // Handle specific Cosmic API errors
     if (error.status === 400) {
       return NextResponse.json(
         { error: 'Invalid data provided. Please check your form inputs.' },

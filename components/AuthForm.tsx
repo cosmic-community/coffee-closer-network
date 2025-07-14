@@ -24,16 +24,83 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
     terms: false
   })
 
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
+    const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+    
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      [name]: newValue
     }))
+
+    // Clear error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }))
+    }
+  }
+
+  const validateForm = () => {
+    const errors: {[key: string]: string} = {}
+
+    if (isSignUp) {
+      if (!formData.fullName.trim()) {
+        errors.fullName = 'Full name is required'
+      }
+      if (!formData.currentRole.trim()) {
+        errors.currentRole = 'Current role is required'
+      }
+      if (!formData.company.trim()) {
+        errors.company = 'Company is required'
+      }
+      if (!formData.seniorityLevel) {
+        errors.seniorityLevel = 'Seniority level is required'
+      }
+      if (!formData.industryVertical) {
+        errors.industryVertical = 'Industry vertical is required'
+      }
+      if (!formData.bio.trim()) {
+        errors.bio = 'Bio is required'
+      } else if (formData.bio.length > 500) {
+        errors.bio = 'Bio must be 500 characters or less'
+      }
+      if (!formData.confirmPassword) {
+        errors.confirmPassword = 'Please confirm your password'
+      } else if (formData.password !== formData.confirmPassword) {
+        errors.confirmPassword = 'Passwords do not match'
+      }
+      if (!formData.terms) {
+        errors.terms = 'You must accept the terms and conditions'
+      }
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address'
+    }
+
+    if (!formData.password) {
+      errors.password = 'Password is required'
+    } else if (formData.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters long'
+    }
+
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!validateForm()) {
+      return
+    }
+
     await onSubmit(formData)
   }
 
@@ -75,9 +142,14 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
               required
               value={formData.fullName}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent ${
+                formErrors.fullName ? 'border-red-500' : 'border-neutral-300'
+              }`}
               placeholder="Enter your full name"
             />
+            {formErrors.fullName && (
+              <p className="text-red-500 text-sm mt-1">{formErrors.fullName}</p>
+            )}
           </div>
         )}
 
@@ -92,9 +164,14 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
             required
             value={formData.email}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent ${
+              formErrors.email ? 'border-red-500' : 'border-neutral-300'
+            }`}
             placeholder="Enter your email address"
           />
+          {formErrors.email && (
+            <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>
+          )}
         </div>
 
         <div>
@@ -108,10 +185,15 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
             required
             value={formData.password}
             onChange={handleChange}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent ${
+              formErrors.password ? 'border-red-500' : 'border-neutral-300'
+            }`}
             placeholder={isSignUp ? "Create a password (8+ characters)" : "Enter your password"}
             minLength={8}
           />
+          {formErrors.password && (
+            <p className="text-red-500 text-sm mt-1">{formErrors.password}</p>
+          )}
           {isSignUp && (
             <p className="text-sm text-neutral-500 mt-1">Must be at least 8 characters</p>
           )}
@@ -130,10 +212,15 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 required
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent ${
+                  formErrors.confirmPassword ? 'border-red-500' : 'border-neutral-300'
+                }`}
                 placeholder="Confirm your password"
                 minLength={8}
               />
+              {formErrors.confirmPassword && (
+                <p className="text-red-500 text-sm mt-1">{formErrors.confirmPassword}</p>
+              )}
             </div>
 
             <div>
@@ -147,9 +234,14 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 required
                 value={formData.currentRole}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent ${
+                  formErrors.currentRole ? 'border-red-500' : 'border-neutral-300'
+                }`}
                 placeholder="e.g., Account Executive, SDR, Sales Manager"
               />
+              {formErrors.currentRole && (
+                <p className="text-red-500 text-sm mt-1">{formErrors.currentRole}</p>
+              )}
             </div>
 
             <div>
@@ -163,9 +255,14 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 required
                 value={formData.company}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent ${
+                  formErrors.company ? 'border-red-500' : 'border-neutral-300'
+                }`}
                 placeholder="Enter your company name"
               />
+              {formErrors.company && (
+                <p className="text-red-500 text-sm mt-1">{formErrors.company}</p>
+              )}
             </div>
 
             <div>
@@ -178,7 +275,9 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 required
                 value={formData.seniorityLevel}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent ${
+                  formErrors.seniorityLevel ? 'border-red-500' : 'border-neutral-300'
+                }`}
               >
                 <option value="">Select your seniority level</option>
                 <option value="SDR">SDR (Sales Development Rep)</option>
@@ -188,6 +287,9 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 <option value="VP">VP of Sales</option>
                 <option value="OTHER">Other</option>
               </select>
+              {formErrors.seniorityLevel && (
+                <p className="text-red-500 text-sm mt-1">{formErrors.seniorityLevel}</p>
+              )}
             </div>
 
             <div>
@@ -200,7 +302,9 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 required
                 value={formData.industryVertical}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent ${
+                  formErrors.industryVertical ? 'border-red-500' : 'border-neutral-300'
+                }`}
               >
                 <option value="">Select your industry</option>
                 <option value="SAAS">SaaS</option>
@@ -212,6 +316,9 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 <option value="TECHNOLOGY">Technology</option>
                 <option value="OTHER">Other</option>
               </select>
+              {formErrors.industryVertical && (
+                <p className="text-red-500 text-sm mt-1">{formErrors.industryVertical}</p>
+              )}
             </div>
 
             <div>
@@ -225,33 +332,43 @@ export default function AuthForm({ mode, onSubmit, isLoading, error }: AuthFormP
                 rows={4}
                 value={formData.bio}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent ${
+                  formErrors.bio ? 'border-red-500' : 'border-neutral-300'
+                }`}
                 placeholder="Tell us about yourself and what you'd like to discuss..."
                 maxLength={500}
               />
+              {formErrors.bio && (
+                <p className="text-red-500 text-sm mt-1">{formErrors.bio}</p>
+              )}
               <p className="text-sm text-neutral-500 mt-1">{formData.bio.length}/500 characters</p>
             </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="terms"
-                name="terms"
-                required
-                checked={formData.terms}
-                onChange={handleChange}
-                className="h-4 w-4 text-coffee-600 focus:ring-coffee-500 border-neutral-300 rounded"
-              />
-              <label htmlFor="terms" className="ml-2 block text-sm text-neutral-700">
-                I agree to the{' '}
-                <Link href="/terms" className="text-coffee-600 hover:text-coffee-700">
-                  Terms of Service
-                </Link>{' '}
-                and{' '}
-                <Link href="/privacy" className="text-coffee-600 hover:text-coffee-700">
-                  Privacy Policy
-                </Link> *
-              </label>
+            <div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  name="terms"
+                  required
+                  checked={formData.terms}
+                  onChange={handleChange}
+                  className="h-4 w-4 text-coffee-600 focus:ring-coffee-500 border-neutral-300 rounded"
+                />
+                <label htmlFor="terms" className="ml-2 block text-sm text-neutral-700">
+                  I agree to the{' '}
+                  <Link href="/terms" className="text-coffee-600 hover:text-coffee-700">
+                    Terms of Service
+                  </Link>{' '}
+                  and{' '}
+                  <Link href="/privacy" className="text-coffee-600 hover:text-coffee-700">
+                    Privacy Policy
+                  </Link> *
+                </label>
+              </div>
+              {formErrors.terms && (
+                <p className="text-red-500 text-sm mt-1">{formErrors.terms}</p>
+              )}
             </div>
           </>
         )}
